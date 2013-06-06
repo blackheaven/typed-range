@@ -5,3 +5,6 @@
 # Temporary Files
 *~
 .*.swp
+
+# HTodo
+/.htodo.db
