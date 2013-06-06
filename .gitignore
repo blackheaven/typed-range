@@ -1,4 +1,5 @@
-# Cabal Dev
+# Development and Build 
+/dist
 /cabal-dev
 
 # Temporary Files
