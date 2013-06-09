@@ -8,32 +8,155 @@ module Data.Range.Range (
       fromMergedRanges
    ) where
 
+-- TODO flip range
+-- TODO invert range (invent not range)
+
 import Data.Ord (comparing)
 import Data.List (sortBy)
+import Data.Either (partitionEithers)
 
 data Range a
    = SingletonRange a
    | SpanRange a a
+   | LowerBoundRange a
+   | UpperBoundRange a
    | InfiniteRange
    deriving(Eq, Show)
 
-infiniteRange :: Range a
-infiniteRange = SpanRange Nothing Nothing
+data RangeMerge a = RM
+   { isInfRange :: Bool
+   , largestLowerBound :: Maybe a
+   , largestUpperBound :: Maybe a
+   , spanRanges :: [(a, a)]
+   , singletons :: [a]
+   }
+   deriving (Show)
+
+emptyRangeMerge :: RangeMerge a
+emptyRangeMerge = RM False Nothing Nothing [] []
+
+storeRange :: (Ord a) => Range a -> RangeMerge a -> RangeMerge a
+storeRange InfiniteRange rm = rm { isInfRange = True }
+storeRange (LowerBoundRange lower) rm = case largestLowerBound rm of
+   Just currentLowest -> rm { largestLowerBound = Just $ min lower currentLowest }
+   Nothing -> rm { largestLowerBound = Just lower }
+storeRange (UpperBoundRange upper) rm = case largestUpperBound rm of
+   Just currentUpper -> rm { largestUpperBound = Just $ max upper currentUpper }
+   Nothing -> rm { largestUpperBound = Just upper }
+storeRange (SpanRange x y) rm = rm { spanRanges = (x, y) : spanRanges rm }
+storeRange (SingletonRange x) rm = rm { singletons = x : singletons rm }
+
+storeRanges :: (Ord a) => RangeMerge a -> [Range a] -> RangeMerge a
+storeRanges = foldr storeRange
+
+loadRanges :: (Ord a) => [Range a] -> RangeMerge a
+loadRanges = storeRanges emptyRangeMerge
+
+-- Assume that the list that comes in is sorted
+compressSingletons :: (Ord a, Enum a) => [a] -> [Either a (a, a)]
+compressSingletons = go [] 
+   where
+      go :: (Ord a, Enum a) => [Either a (a, a)] -> [a] -> [Either a (a, a)]
+      go rs [] = rs
+      go [] (x:xs) = go [Left x] xs
+      go orig@(Right (low, high):rs) (x:xs) = if (succ high >= x)
+         then go (Right (low, x):rs) xs
+         else go (Left x : orig) xs
+      go orig@(Left a:rs) (x:xs) = case compare (succ a) x of
+         LT -> go (Left x : orig) xs 
+         EQ -> go (Right (a, x):rs) xs
+         GT -> error "The input list to compressSingletons was not sorted."
+
+elevateSuccessors :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a
+elevateSuccessors rm = rm
+   -- TODO see if you can use the remaining singletons to expand the existing spans
+   { spanRanges = newRanges ++ updatedSpans
+   , singletons = finalRemaining
+   }
+   where
+      (remainingSingletons, newRanges) = partitionEithers . compressSingletons . singletons $ rm
+      (updatedSpans, finalRemaining) = expandSpans (spanRanges rm) remainingSingletons
+
+expandSpans :: (Enum a, Ord a) => [(a, a)] -> [a] -> ([(a, a)], [a])
+expandSpans existingSpans values = foldr expanding (existingSpans, []) values 
+   where
+      expanding :: (Enum a, Ord a) => a -> ([(a, a)], [a]) -> ([(a, a)], [a])
+      expanding nextValue (existing, rem) = case tryExtend nextValue existing of
+         Just newSpans -> (newSpans, rem)
+         Nothing -> (existing, nextValue : rem)
+
+      tryExtend :: (Enum a, Ord a) => a -> [(a, a)] -> Maybe [(a, a)]
+      tryExtend value = go
+         where
+            go [] = Nothing
+            go (o@(x, y) : xs) = case extendSpan value o of
+               Just newSpan -> Just (newSpan : xs)
+               Nothing -> case go xs of
+                  Just res -> Just $ o : res
+                  Nothing -> Nothing
+
+      extendSpan :: (Enum a, Ord a) => a -> (a, a) -> Maybe (a, a)
+      extendSpan x o@(a, b) = if succ x == a 
+         then Just (x, b)
+         else if succ b == x
+            then Just (a, x)
+            else Nothing
+
+compressSpans :: (Ord a) => RangeMerge a -> RangeMerge a
+compressSpans rm = rm { spanRanges = update rm } 
+   where
+      update = mergeSpans . sortBy (comparing fst) . spanRanges
+
+      mergeSpans :: Ord a => [(a, a)] -> [(a, a)]
+      mergeSpans (f@(a, b) : s@(x, y) : xs) = if isBetween x f 
+         then mergeSpans ((a, max b y) : xs)
+         else f : mergeSpans (s : xs)
+      mergeSpans xs = xs
+         
+updateBounds :: (Ord a) => RangeMerge a -> RangeMerge a
+updateBounds rm = foldr singleSpanUpdate rmNoSpans (spanRanges rm)
+   where
+      rmNoSpans = rm { spanRanges = [] }
+
+      singleSpanUpdate :: (Ord a) => (a, a) -> RangeMerge a -> RangeMerge a
+      singleSpanUpdate o@(x, y) rm = case (updatedLower, updatedUpper) of
+         (Nothing, Nothing) -> rm { spanRanges = o : spanRanges rm }
+         (a@(Just _), Nothing) -> rm { largestLowerBound = a }
+         (Nothing, b@(Just _)) -> rm { largestUpperBound = b }
+         (a, b) -> rm
+            { largestLowerBound = a
+            , largestUpperBound = b
+            }
+         where
+            updatedLower = update (<= y) (min x) . largestLowerBound $ rm
+            updatedUpper = update (x <=) (max y) . largestUpperBound $ rm
+
+            update :: (Ord a) => (a -> Bool) -> (a -> a) -> Maybe a -> Maybe a
+            update _ _ Nothing = Nothing
+            update compare step (Just value) = if compare value
+               then Just $ step value
+               else Nothing
+
+{-
+mergeSingletons :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a
+mergeSingletons rm = mergeAdjacent . sort . singletons $ rm
+   where
+   -}
+      
 
 rangesOverlap :: (Ord a) => Range a -> Range a -> Bool
--- rangesOverlap InfiniteRange _ = True
--- rangesOverlap _ InfiniteRange = True
 rangesOverlap (SingletonRange a) (SingletonRange b) = a == b
 rangesOverlap (SingletonRange a) (SpanRange x y) = isBetween a (x, y)
-rangesOverlap (SpanRange x y) (SingletonRange a) = isBetween a (x, y)
-rangesOverlap (SpanRange Nothing Nothing) _ = True -- Infinite ranges overlap
-rangesOverlap _ (SpanRange Nothing Nothing) = True
-rangesOverlap (SpanRange _ Nothing) (SpanRange _ Nothing) = True -- Ranges same direction
-rangesOverlap (SpanRange Nothing _) (SpanRange Nothing _) = True
-rangesOverlap (SpanRange Nothing (Just y)) (SpanRange (Just x) Nothing) = x <= y
-rangesOverlap (SpanRange (Just x) Nothing) (SpanRange Nothing (Just y)) = x <= y
-rangesOverlap (SpanRange (Just x) (Just y)) (SpanRange (Just a) (Just b)) 
-   = isBetween x (Just a, Just b) || isBetween a (Just x, Just y)
+rangesOverlap (SingletonRange a) (LowerBoundRange lower) = lower <= a
+rangesOverlap (SingletonRange a) (UpperBoundRange upper) = a <= upper
+rangesOverlap (SpanRange x y) (SpanRange a b) = isBetween x (a, b) || isBetween a (x, y)
+rangesOverlap (SpanRange _ y) (LowerBoundRange lower) = lower <= y
+rangesOverlap (SpanRange x _) (UpperBoundRange upper) = x <= upper
+rangesOverlap (LowerBoundRange _) (LowerBoundRange _) = True
+rangesOverlap (LowerBoundRange x) (UpperBoundRange y) = x <= y
+rangesOverlap (UpperBoundRange _) (UpperBoundRange _) = True
+rangesOverlap InfiniteRange _ = True
+rangesOverlap a b = rangesOverlap b a
 
 -- x- y- will both overlap
 -- 3- -9 will overlap
@@ -43,8 +166,8 @@ inRange :: (Ord a) => Range a -> a -> Bool
 inRange (SingletonRange a) value = value == a
 inRange (SpanRange x y) value = isBetween value (x, y)
 
-isBetween :: (Ord a) => a -> (Maybe a, Maybe a) -> Bool
-isBetween a (x, y) = maybe True (<= a) x && maybe True (a <=) y
+isBetween :: (Ord a) => a -> (a, a) -> Bool
+isBetween a (x, y) = (x <= a) && (a <= y)
 
 mergeRange :: (Ord a) => Range a -> Range a -> Either (Range a, Range a) (Range a)
 mergeRange r1 r2 = if rangesOverlap r1 r2
@@ -53,16 +176,14 @@ mergeRange r1 r2 = if rangesOverlap r1 r2
    where
       assumeMerge :: (Ord a) => Range a -> Range a -> Range a
       assumeMerge (SingletonRange _) x = x
-      assumeMerge x (SingletonRange _) = x
-      assumeMerge (SpanRange x y) (SpanRange a b) = SpanRange (minMaybe x a) (maxMaybe y b)
-
-      minMaybe :: (Ord a) => Maybe a -> Maybe a -> Maybe a
-      minMaybe = min
-
-      maxMaybe :: (Ord a) => Maybe a -> Maybe a -> Maybe a
-      maxMaybe Nothing _ = Nothing
-      maxMaybe _ Nothing = Nothing
-      maxMaybe x y = max x y 
+      assumeMerge (SpanRange x y) (SpanRange a b) = SpanRange (min x a) (max y b)
+      assumeMerge (SpanRange x _) (LowerBoundRange lower) = LowerBoundRange (min x lower)
+      assumeMerge (SpanRange _ y) (UpperBoundRange upper) = UpperBoundRange (max y upper)
+      assumeMerge (LowerBoundRange a) (LowerBoundRange b) = LowerBoundRange (min a b)
+      assumeMerge (LowerBoundRange _) (UpperBoundRange _) = InfiniteRange
+      assumeMerge (UpperBoundRange a) (UpperBoundRange b) = UpperBoundRange (max a b)
+      assumeMerge InfiniteRange _ = InfiniteRange
+      assumeMerge a b = assumeMerge b a
 
 flipOrdering :: Ordering -> Ordering
 flipOrdering LT = GT
@@ -71,16 +192,18 @@ flipOrdering EQ = EQ
 
 -- The longer the range the earlier that it should go in the pipeline.
 orderRanges :: (Ord a) => Range a -> Range a -> Ordering
-orderRanges (SingletonRange x) (SingletonRange y) = compare x y
-orderRanges _ (SpanRange Nothing _) = GT
-orderRanges (SpanRange Nothing _) _ = LT
-orderRanges (SingletonRange x) (SpanRange (Just y) _) = compare x y
-orderRanges (SpanRange (Just x) _) (SingletonRange y) = compare x y
-orderRanges (SpanRange (Just x) _) (SpanRange (Just y) _) = compare x y
+orderRanges (SingletonRange a) (SingletonRange b) = compare a b
+orderRanges (SingletonRange a) (SpanRange x _) = compare a x
+orderRanges _ (LowerBoundRange _) = GT
+orderRanges _ (UpperBoundRange _) = GT
+orderRanges (SpanRange x _) (SpanRange a _) = compare x a
+orderRanges InfiniteRange _ = LT
+orderRanges a b = flipOrdering $ orderRanges b a
 
 sortRanges :: (Ord a) => [Range a] -> [Range a]
 sortRanges = sortBy orderRanges
 
+-- If you have an infinite range then you can stop there, the merging is complete
 mergeRanges :: (Ord a) => [Range a] -> [Range a]
 mergeRanges = mergeRangesHelper . sortRanges
    where
@@ -90,13 +213,21 @@ mergeRanges = mergeRangesHelper . sortRanges
                                      Right a -> mergeRangesHelper (a:xs)
       mergeRangesHelper xs = xs
 
+takeEvenly :: [a] -> [a] -> [a]
+takeEvenly x [] = x
+takeEvenly [] x = x
+takeEvenly (a:as) (b:bs) = a : b : takeEvenly as bs
+
 fromRanges :: (Ord a, Enum a) => [Range a] -> [a]
 fromRanges [] = []
 fromRanges (x:xs) = (case x of
    SingletonRange x -> [x] 
-   SpanRange Nothing _ -> error "Cannot generate an infinite range."
-   SpanRange _ Nothing -> error "Cannot generate an infinite range."
-   SpanRange (Just a) (Just b) -> [a..b]
+   LowerBoundRange x -> iterate succ x
+   UpperBoundRange x -> iterate pred x
+   InfiniteRange -> zero : takeEvenly (tail $ iterate succ zero) (tail $ iterate pred zero)
+      where
+         zero = toEnum 0
+   SpanRange a b -> [a..b]
    ) ++ fromRanges xs
 
 fromMergedRanges :: (Ord a, Enum a) => [Range a] -> [a]
