@@ -12,7 +12,7 @@ module Data.Range.Range (
 -- TODO invert range (invent not range)
 
 import Data.Ord (comparing)
-import Data.List (sortBy)
+import Data.List (sortBy, foldl)
 import Data.Either (partitionEithers)
 
 data Range a
@@ -59,7 +59,7 @@ compressSingletons = go []
       go :: (Ord a, Enum a) => [Either a (a, a)] -> [a] -> [Either a (a, a)]
       go rs [] = rs
       go [] (x:xs) = go [Left x] xs
-      go orig@(Right (low, high):rs) (x:xs) = if (succ high >= x)
+      go orig@(Right (low, high):rs) (x:xs) = if succ high >= x
          then go (Right (low, x):rs) xs
          else go (Left x : orig) xs
       go orig@(Left a:rs) (x:xs) = case compare (succ a) x of
@@ -113,9 +113,12 @@ compressSpans rm = rm { spanRanges = update rm }
          else f : mergeSpans (s : xs)
       mergeSpans xs = xs
          
-updateBounds :: (Ord a) => RangeMerge a -> RangeMerge a
-updateBounds rm = foldr singleSpanUpdate rmNoSpans (spanRanges rm)
+updateBounds :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a
+updateBounds rm = updatedSingletons
    where
+      updatedSingletons = foldr singletonUpdate (updatedSpans {singletons = []}) (singletons updatedSpans)
+      updatedSpans = foldr singleSpanUpdate rmNoSpans (spanRanges rm)
+
       rmNoSpans = rm { spanRanges = [] }
 
       singleSpanUpdate :: (Ord a) => (a, a) -> RangeMerge a -> RangeMerge a
@@ -131,18 +134,43 @@ updateBounds rm = foldr singleSpanUpdate rmNoSpans (spanRanges rm)
             updatedLower = update (<= y) (min x) . largestLowerBound $ rm
             updatedUpper = update (x <=) (max y) . largestUpperBound $ rm
 
-            update :: (Ord a) => (a -> Bool) -> (a -> a) -> Maybe a -> Maybe a
-            update _ _ Nothing = Nothing
-            update compare step (Just value) = if compare value
-               then Just $ step value
-               else Nothing
+      update :: (Ord a) => (a -> Bool) -> (a -> a) -> Maybe a -> Maybe a
+      update _ _ Nothing = Nothing
+      update compare step (Just value) = if compare value
+         then Just $ step value
+         else Nothing
 
-{-
-mergeSingletons :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a
-mergeSingletons rm = mergeAdjacent . sort . singletons $ rm
+      singletonUpdate :: (Ord a, Enum a) => a -> RangeMerge a -> RangeMerge a
+      singletonUpdate value rm = case (updatedLower, updatedUpper) of
+         (Nothing, Nothing) -> rm { singletons = value : singletons rm }
+         (a@(Just _), Nothing) -> rm { largestLowerBound = a }
+         (Nothing, b@(Just _)) -> rm { largestUpperBound = b }
+         (a, b) -> rm
+            { largestLowerBound = a
+            , largestUpperBound = b
+            }
+         where
+            updatedLower = update ((succ value) >=) (min value) . largestLowerBound $ rm 
+            updatedUpper = update ((pred value) <=) (max value) . largestUpperBound $ rm 
+
+optimizeRangeMerge :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a
+optimizeRangeMerge = updateBounds . compressSpans . elevateSuccessors
+
+exportRangeMerge :: (Ord a, Enum a) => RangeMerge a -> [Range a]
+exportRangeMerge rm = if isInfRange rm
+   then [InfiniteRange]
+   else case optimizeRangeMerge rm of
+      (RM True _ _ _ _) -> [InfiniteRange]
+      orm -> putAll orm
    where
-   -}
-      
+      putAll :: RangeMerge a -> [Range a]
+      putAll (RM _ lb up spans singles) = 
+         putLowerBound lb ++ putUpperBound up ++ putSpans spans ++ putSingles singles
+
+      putLowerBound = maybe [] (return . LowerBoundRange)
+      putUpperBound = maybe [] (return . UpperBoundRange)
+      putSpans = map (uncurry SpanRange)
+      putSingles = map SingletonRange
 
 rangesOverlap :: (Ord a) => Range a -> Range a -> Bool
 rangesOverlap (SingletonRange a) (SingletonRange b) = a == b
@@ -219,16 +247,16 @@ takeEvenly [] x = x
 takeEvenly (a:as) (b:bs) = a : b : takeEvenly as bs
 
 fromRanges :: (Ord a, Enum a) => [Range a] -> [a]
-fromRanges [] = []
-fromRanges (x:xs) = (case x of
-   SingletonRange x -> [x] 
-   LowerBoundRange x -> iterate succ x
-   UpperBoundRange x -> iterate pred x
-   InfiniteRange -> zero : takeEvenly (tail $ iterate succ zero) (tail $ iterate pred zero)
-      where
-         zero = toEnum 0
-   SpanRange a b -> [a..b]
-   ) ++ fromRanges xs
+fromRanges = concatMap fromRange
+   where 
+      fromRange range = case range of 
+         SingletonRange x -> [x] 
+         SpanRange a b -> [a..b]
+         LowerBoundRange x -> iterate succ x
+         UpperBoundRange x -> iterate pred x
+         InfiniteRange -> zero : takeEvenly (tail $ iterate succ zero) (tail $ iterate pred zero)
+            where
+               zero = toEnum 0
 
 fromMergedRanges :: (Ord a, Enum a) => [Range a] -> [a]
 fromMergedRanges = fromRanges . mergeRanges
