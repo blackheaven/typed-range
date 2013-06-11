@@ -28,12 +28,11 @@ data RangeMerge a = RM
    , largestLowerBound :: Maybe a
    , largestUpperBound :: Maybe a
    , spanRanges :: [(a, a)]
-   , singletons :: [a]
    }
    deriving (Show)
 
 emptyRangeMerge :: RangeMerge a
-emptyRangeMerge = RM False Nothing Nothing [] []
+emptyRangeMerge = RM False Nothing Nothing []
 
 storeRange :: (Ord a) => Range a -> RangeMerge a -> RangeMerge a
 storeRange InfiniteRange rm = rm { isInfRange = True }
@@ -44,7 +43,7 @@ storeRange (UpperBoundRange upper) rm = case largestUpperBound rm of
    Just currentUpper -> rm { largestUpperBound = Just $ max upper currentUpper }
    Nothing -> rm { largestUpperBound = Just upper }
 storeRange (SpanRange x y) rm = rm { spanRanges = (x, y) : spanRanges rm }
-storeRange (SingletonRange x) rm = rm { singletons = x : singletons rm }
+storeRange (SingletonRange x) rm = rm { spanRanges = (x, x) : spanRanges rm }
 
 storeRanges :: (Ord a) => RangeMerge a -> [Range a] -> RangeMerge a
 storeRanges = foldr storeRange
@@ -52,55 +51,16 @@ storeRanges = foldr storeRange
 loadRanges :: (Ord a) => [Range a] -> RangeMerge a
 loadRanges = storeRanges emptyRangeMerge
 
--- Assume that the list that comes in is sorted
-compressSingletons :: (Ord a, Enum a) => [a] -> [Either a (a, a)]
-compressSingletons = go [] 
-   where
-      go :: (Ord a, Enum a) => [Either a (a, a)] -> [a] -> [Either a (a, a)]
-      go rs [] = rs
-      go [] (x:xs) = go [Left x] xs
-      go orig@(Right (low, high):rs) (x:xs) = if succ high >= x
-         then go (Right (low, x):rs) xs
-         else go (Left x : orig) xs
-      go orig@(Left a:rs) (x:xs) = case compare (succ a) x of
-         LT -> go (Left x : orig) xs 
-         EQ -> go (Right (a, x):rs) xs
-         GT -> error "The input list to compressSingletons was not sorted."
+-- Assume that the compression returns a sorted list
+joinSpans :: (Ord a, Enum a) => [(a, a)] -> [(a, a)]
+joinSpans (f@(a, b) : s@(x, y) : xs) = 
+   if succ b == x
+      then joinSpans $ (a, y) : xs
+      else f : joinSpans (s : xs)
+joinSpans xs = xs
 
-elevateSuccessors :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a
-elevateSuccessors rm = rm
-   -- TODO see if you can use the remaining singletons to expand the existing spans
-   { spanRanges = newRanges ++ updatedSpans
-   , singletons = finalRemaining
-   }
-   where
-      (remainingSingletons, newRanges) = partitionEithers . compressSingletons . singletons $ rm
-      (updatedSpans, finalRemaining) = expandSpans (spanRanges rm) remainingSingletons
-
-expandSpans :: (Enum a, Ord a) => [(a, a)] -> [a] -> ([(a, a)], [a])
-expandSpans existingSpans values = foldr expanding (existingSpans, []) values 
-   where
-      expanding :: (Enum a, Ord a) => a -> ([(a, a)], [a]) -> ([(a, a)], [a])
-      expanding nextValue (existing, rem) = case tryExtend nextValue existing of
-         Just newSpans -> (newSpans, rem)
-         Nothing -> (existing, nextValue : rem)
-
-      tryExtend :: (Enum a, Ord a) => a -> [(a, a)] -> Maybe [(a, a)]
-      tryExtend value = go
-         where
-            go [] = Nothing
-            go (o@(x, y) : xs) = case extendSpan value o of
-               Just newSpan -> Just (newSpan : xs)
-               Nothing -> case go xs of
-                  Just res -> Just $ o : res
-                  Nothing -> Nothing
-
-      extendSpan :: (Enum a, Ord a) => a -> (a, a) -> Maybe (a, a)
-      extendSpan x o@(a, b) = if succ x == a 
-         then Just (x, b)
-         else if succ b == x
-            then Just (a, x)
-            else Nothing
+joinRangeSpans :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a
+joinRangeSpans rm = rm { spanRanges = joinSpans . spanRanges $ rm }
 
 compressSpans :: (Ord a) => RangeMerge a -> RangeMerge a
 compressSpans rm = rm { spanRanges = update rm } 
@@ -114,14 +74,11 @@ compressSpans rm = rm { spanRanges = update rm }
       mergeSpans xs = xs
          
 updateBounds :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a
-updateBounds rm = updatedSingletons
+updateBounds rm = foldr singleSpanUpdate rmNoSpans (spanRanges rm)
    where
-      updatedSingletons = foldr singletonUpdate (updatedSpans {singletons = []}) (singletons updatedSpans)
-      updatedSpans = foldr singleSpanUpdate rmNoSpans (spanRanges rm)
-
       rmNoSpans = rm { spanRanges = [] }
 
-      singleSpanUpdate :: (Ord a) => (a, a) -> RangeMerge a -> RangeMerge a
+      singleSpanUpdate :: (Ord a, Enum a) => (a, a) -> RangeMerge a -> RangeMerge a
       singleSpanUpdate o@(x, y) rm = case (updatedLower, updatedUpper) of
          (Nothing, Nothing) -> rm { spanRanges = o : spanRanges rm }
          (a@(Just _), Nothing) -> rm { largestLowerBound = a }
@@ -131,8 +88,8 @@ updateBounds rm = updatedSingletons
             , largestUpperBound = b
             }
          where
-            updatedLower = update (<= y) (min x) . largestLowerBound $ rm
-            updatedUpper = update (x <=) (max y) . largestUpperBound $ rm
+            updatedLower = update (<= succ y) (min x) . largestLowerBound $ rm
+            updatedUpper = update (pred x <=) (max y) . largestUpperBound $ rm
 
       update :: (Ord a) => (a -> Bool) -> (a -> a) -> Maybe a -> Maybe a
       update _ _ Nothing = Nothing
@@ -140,37 +97,26 @@ updateBounds rm = updatedSingletons
          then Just $ step value
          else Nothing
 
-      singletonUpdate :: (Ord a, Enum a) => a -> RangeMerge a -> RangeMerge a
-      singletonUpdate value rm = case (updatedLower, updatedUpper) of
-         (Nothing, Nothing) -> rm { singletons = value : singletons rm }
-         (a@(Just _), Nothing) -> rm { largestLowerBound = a }
-         (Nothing, b@(Just _)) -> rm { largestUpperBound = b }
-         (a, b) -> rm
-            { largestLowerBound = a
-            , largestUpperBound = b
-            }
-         where
-            updatedLower = update ((succ value) >=) (min value) . largestLowerBound $ rm 
-            updatedUpper = update ((pred value) <=) (max value) . largestUpperBound $ rm 
-
 optimizeRangeMerge :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a
-optimizeRangeMerge = updateBounds . compressSpans . elevateSuccessors
+optimizeRangeMerge = updateBounds . joinRangeSpans . compressSpans
 
 exportRangeMerge :: (Ord a, Enum a) => RangeMerge a -> [Range a]
 exportRangeMerge rm = if isInfRange rm
    then [InfiniteRange]
    else case optimizeRangeMerge rm of
-      (RM True _ _ _ _) -> [InfiniteRange]
+      (RM True _ _ _) -> [InfiniteRange]
       orm -> putAll orm
    where
-      putAll :: RangeMerge a -> [Range a]
-      putAll (RM _ lb up spans singles) = 
-         putLowerBound lb ++ putUpperBound up ++ putSpans spans ++ putSingles singles
+      putAll (RM _ lb up spans) = 
+         putLowerBound lb ++ putUpperBound up ++ putSpans spans
 
       putLowerBound = maybe [] (return . LowerBoundRange)
       putUpperBound = maybe [] (return . UpperBoundRange)
-      putSpans = map (uncurry SpanRange)
-      putSingles = map SingletonRange
+      putSpans = map simplifySpan
+
+      simplifySpan (x, y) = if x == y
+         then SingletonRange x
+         else SpanRange x y
 
 rangesOverlap :: (Ord a) => Range a -> Range a -> Bool
 rangesOverlap (SingletonRange a) (SingletonRange b) = a == b
