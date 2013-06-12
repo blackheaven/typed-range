@@ -96,8 +96,16 @@ updateBounds rm = foldr singleSpanUpdate rmNoSpans (spanRanges rm)
          then Just $ step value
          else Nothing
 
+potentiallyMergeBounds :: (Enum a, Ord a) => RangeMerge a -> RangeMerge a
+potentiallyMergeBounds rm = case (upper, lower) of
+   (Just high, Just low) -> rm { isInfRange = succ high >= low }
+   _ -> rm
+   where
+      upper = largestUpperBound rm
+      lower = largestLowerBound rm
+
 optimizeRangeMerge :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a
-optimizeRangeMerge = updateBounds . joinRangeSpans . compressSpans
+optimizeRangeMerge = potentiallyMergeBounds . updateBounds . joinRangeSpans . compressSpans
 
 exportRangeMerge :: (Ord a, Enum a) => RangeMerge a -> [Range a]
 exportRangeMerge rm = if isInfRange rm
