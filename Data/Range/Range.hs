@@ -2,7 +2,6 @@ module Data.Range.Range (
       Range(..),
       inRange,
       rangesOverlap,
-      mergeRange,
       mergeRanges,
       fromRanges,
       fromMergedRanges
@@ -143,49 +142,8 @@ inRange (SpanRange x y) value = isBetween value (x, y)
 isBetween :: (Ord a) => a -> (a, a) -> Bool
 isBetween a (x, y) = (x <= a) && (a <= y)
 
-mergeRange :: (Ord a) => Range a -> Range a -> Either (Range a, Range a) (Range a)
-mergeRange r1 r2 = if rangesOverlap r1 r2
-                     then Right $ assumeMerge r1 r2
-                     else Left (r1, r2)
-   where
-      assumeMerge :: (Ord a) => Range a -> Range a -> Range a
-      assumeMerge (SingletonRange _) x = x
-      assumeMerge (SpanRange x y) (SpanRange a b) = SpanRange (min x a) (max y b)
-      assumeMerge (SpanRange x _) (LowerBoundRange lower) = LowerBoundRange (min x lower)
-      assumeMerge (SpanRange _ y) (UpperBoundRange upper) = UpperBoundRange (max y upper)
-      assumeMerge (LowerBoundRange a) (LowerBoundRange b) = LowerBoundRange (min a b)
-      assumeMerge (LowerBoundRange _) (UpperBoundRange _) = InfiniteRange
-      assumeMerge (UpperBoundRange a) (UpperBoundRange b) = UpperBoundRange (max a b)
-      assumeMerge InfiniteRange _ = InfiniteRange
-      assumeMerge a b = assumeMerge b a
-
-flipOrdering :: Ordering -> Ordering
-flipOrdering LT = GT
-flipOrdering GT = LT
-flipOrdering EQ = EQ
-
--- The longer the range the earlier that it should go in the pipeline.
-orderRanges :: (Ord a) => Range a -> Range a -> Ordering
-orderRanges (SingletonRange a) (SingletonRange b) = compare a b
-orderRanges (SingletonRange a) (SpanRange x _) = compare a x
-orderRanges _ (LowerBoundRange _) = GT
-orderRanges _ (UpperBoundRange _) = GT
-orderRanges (SpanRange x _) (SpanRange a _) = compare x a
-orderRanges InfiniteRange _ = LT
-orderRanges a b = flipOrdering $ orderRanges b a
-
-sortRanges :: (Ord a) => [Range a] -> [Range a]
-sortRanges = sortBy orderRanges
-
--- If you have an infinite range then you can stop there, the merging is complete
-mergeRanges :: (Ord a) => [Range a] -> [Range a]
-mergeRanges = mergeRangesHelper . sortRanges
-   where
-      mergeRangesHelper :: (Ord a) => [Range a] -> [Range a]
-      mergeRangesHelper (x:y:xs) = case mergeRange x y of
-                                     Left (a, b) -> a : mergeRangesHelper (b:xs)
-                                     Right a -> mergeRangesHelper (a:xs)
-      mergeRangesHelper xs = xs
+mergeRanges :: (Ord a, Enum a) => [Range a] -> [Range a]
+mergeRanges = exportRangeMerge . loadRanges
 
 takeEvenly :: [a] -> [a] -> [a]
 takeEvenly x [] = x
