@@ -146,6 +146,9 @@ rangesOverlap a b = rangesOverlap b a
 inRange :: (Ord a) => Range a -> a -> Bool
 inRange (SingletonRange a) value = value == a
 inRange (SpanRange x y) value = isBetween value (x, y)
+inRange (LowerBoundRange lower) value = lower <= value
+inRange (UpperBoundRange upper) value = value <= upper
+inRange InfiniteRange _ = True
 
 isBetween :: (Ord a) => a -> (a, a) -> Bool
 isBetween a (x, y) = (x <= a) && (a <= y)
