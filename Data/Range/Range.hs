@@ -13,6 +13,7 @@ module Data.Range.Range (
 import Data.Ord (comparing)
 import Data.List (sortBy, foldl)
 import Data.Either (partitionEithers)
+import Data.Maybe (catMaybes)
 
 data Range a
    = SingletonRange a
@@ -23,18 +24,85 @@ data Range a
    deriving(Eq, Show)
 
 data RangeMerge a = RM
-   { isInfRange :: Bool
-   , largestLowerBound :: Maybe a
+   { largestLowerBound :: Maybe a
    , largestUpperBound :: Maybe a
    , spanRanges :: [(a, a)]
    }
+   | IRM
    deriving (Show)
 
 emptyRangeMerge :: RangeMerge a
-emptyRangeMerge = RM False Nothing Nothing []
+emptyRangeMerge = RM Nothing Nothing []
+
+-- an intersection of a value followed by a union of that value should be the identity.
+-- This is false. An intersection of a value followed by a union of that value should be
+-- the value itself.
+-- (1, 3) union (3, 4) => (1, 4)
+-- (1, 3) intersection (3, 4) = (3, 3)
+-- ((1, 3) intersection (3, 4)) union (3, 4) => (3, 4)
+
+unionRange :: (Ord a) => Range a -> RangeMerge a -> RangeMerge a
+unionRange InfiniteRange rm = IRM
+unionRange (LowerBoundRange lower) rm = case largestLowerBound rm of
+   Just currentLowest -> rm { largestLowerBound = Just $ min lower currentLowest }
+   Nothing -> rm { largestLowerBound = Just lower }
+
+-- If it was an infinite range then it should not be after an intersection unless it was
+-- an intersection with another infinite range.
+intersectionRange :: (Ord a, Enum a) => Range a -> RangeMerge a -> RangeMerge a
+intersectionRange InfiniteRange rm = rm -- Intersection with universe remains same
+intersectionRange (LowerBoundRange lower) rm = rm
+   { largestLowerBound = largestLowerBound rm >>= return . max lower
+   , spanRanges = catMaybes . map (updateRange lower) . spanRanges $ rm
+   }
+   where
+      updateRange :: (Ord a) => a -> (a, a) -> Maybe (a, a)
+      updateRange lower (begin, end) = if lower <= end
+         then Just (max lower begin, end)
+         else Nothing
+intersectionRange (UpperBoundRange upper) rm = rm
+   { largestUpperBound = largestUpperBound rm >>= return . min upper
+   , spanRanges = catMaybes . map (updateRange upper) . spanRanges $ rm
+   }
+   where
+      updateRange :: (Ord a) => a -> (a, a) -> Maybe (a, a)
+      updateRange upper (begin, end) = if begin <= upper
+         then Just (begin, min upper end)
+         else Nothing
+intersectionRange (SpanRange lower upper) rm = rm
+   -- update the bounds first and then update the spans, if the spans were sorted then
+   { largestUpperBound = largestUpperBound rm >>= return . min upper
+   , largestLowerBound = largestLowerBound rm >>= return . max lower
+   -- they would be faster to update I suspect, lets start with not sorted
+   , spanRanges = joinMergeSortSpans . ((lower, upper) :) . spanRanges $ rm
+   }
+intersectionRange (SingletonRange value) rm = intersectionRange (SpanRange value value) rm
+   -- You need to update the spans using the new bound that has been added in. Every span
+   -- needs to be updated.
+
+joinMergeSortSpans :: (Ord a, Enum a) => [(a, a)] -> [(a, a)]
+joinMergeSortSpans = joinSpans . mergeSpans . sortSpans
+
+sortSpans :: (Ord a) => [(a, a)] -> [(a, a)]
+sortSpans = sortBy (comparing fst)
+
+mergeSpans :: Ord a => [(a, a)] -> [(a, a)]
+mergeSpans (f@(a, b) : s@(x, y) : xs) = if isBetween x f 
+   then mergeSpans ((a, max b y) : xs)
+   else f : mergeSpans (s : xs)
+mergeSpans xs = xs
+         
+joinSpans :: (Ord a, Enum a) => [(a, a)] -> [(a, a)]
+joinSpans (f@(a, b) : s@(x, y) : xs) = 
+   if succ b == x
+      then joinSpans $ (a, y) : xs
+      else f : joinSpans (s : xs)
+joinSpans xs = xs
+
+-- OLD Code Below
 
 storeRange :: (Ord a) => Range a -> RangeMerge a -> RangeMerge a
-storeRange InfiniteRange rm = rm { isInfRange = True }
+storeRange InfiniteRange rm = IRM
 storeRange (LowerBoundRange lower) rm = case largestLowerBound rm of
    Just currentLowest -> rm { largestLowerBound = Just $ min lower currentLowest }
    Nothing -> rm { largestLowerBound = Just lower }
@@ -51,70 +119,26 @@ loadRanges :: (Ord a) => [Range a] -> RangeMerge a
 loadRanges = storeRanges emptyRangeMerge
 
 -- Assume that the compression returns a sorted list
-joinSpans :: (Ord a, Enum a) => [(a, a)] -> [(a, a)]
-joinSpans (f@(a, b) : s@(x, y) : xs) = 
-   if succ b == x
-      then joinSpans $ (a, y) : xs
-      else f : joinSpans (s : xs)
-joinSpans xs = xs
 
-joinRangeSpans :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a
-joinRangeSpans rm = rm { spanRanges = joinSpans . spanRanges $ rm }
-
-compressSpans :: (Ord a) => RangeMerge a -> RangeMerge a
-compressSpans rm = rm { spanRanges = update rm } 
-   where
-      update = mergeSpans . sortBy (comparing fst) . spanRanges
-
-      mergeSpans :: Ord a => [(a, a)] -> [(a, a)]
-      mergeSpans (f@(a, b) : s@(x, y) : xs) = if isBetween x f 
-         then mergeSpans ((a, max b y) : xs)
-         else f : mergeSpans (s : xs)
-      mergeSpans xs = xs
-         
-updateBounds :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a
-updateBounds rm = foldr singleSpanUpdate rmNoSpans (spanRanges rm)
-   where
-      rmNoSpans = rm { spanRanges = [] }
-
-      singleSpanUpdate :: (Ord a, Enum a) => (a, a) -> RangeMerge a -> RangeMerge a
-      singleSpanUpdate o@(x, y) rm = case (updatedLower, updatedUpper) of
-         (Nothing, Nothing) -> rm { spanRanges = o : spanRanges rm }
-         (a@(Just _), Nothing) -> rm { largestLowerBound = a }
-         (Nothing, b@(Just _)) -> rm { largestUpperBound = b }
-         (a, b) -> rm
-            { largestLowerBound = a
-            , largestUpperBound = b
-            }
-         where
-            updatedLower = update (<= succ y) (min x) . largestLowerBound $ rm
-            updatedUpper = update (pred x <=) (max y) . largestUpperBound $ rm
-
-      update :: (Ord a) => (a -> Bool) -> (a -> a) -> Maybe a -> Maybe a
-      update _ _ Nothing = Nothing
-      update compare step (Just value) = if compare value
-         then Just $ step value
-         else Nothing
-
+-- Should use this when a span or bound update happens...so after any update happens at
+-- all
 potentiallyMergeBounds :: (Enum a, Ord a) => RangeMerge a -> RangeMerge a
 potentiallyMergeBounds rm = case (upper, lower) of
-   (Just high, Just low) -> rm { isInfRange = succ high >= low }
+   (Just high, Just low) -> if succ high >= low then IRM else rm
    _ -> rm
    where
       upper = largestUpperBound rm
       lower = largestLowerBound rm
 
 optimizeRangeMerge :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a
-optimizeRangeMerge = potentiallyMergeBounds . updateBounds . joinRangeSpans . compressSpans
+optimizeRangeMerge = potentiallyMergeBounds
 
 exportRangeMerge :: (Ord a, Enum a) => RangeMerge a -> [Range a]
-exportRangeMerge rm = if isInfRange rm
-   then [InfiniteRange]
-   else case optimizeRangeMerge rm of
-      (RM True _ _ _) -> [InfiniteRange]
-      orm -> putAll orm
+exportRangeMerge IRM = [InfiniteRange]
+exportRangeMerge rm = putAll $ optimizeRangeMerge rm
    where
-      putAll (RM _ lb up spans) = 
+      putAll IRM = [InfiniteRange]
+      putAll (RM lb up spans) = 
          putLowerBound lb ++ putUpperBound up ++ putSpans spans
 
       putLowerBound = maybe [] (return . LowerBoundRange)
