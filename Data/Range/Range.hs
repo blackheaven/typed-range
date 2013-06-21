@@ -15,6 +15,8 @@ import Data.List (sortBy, foldl)
 import Data.Either (partitionEithers)
 import Data.Maybe (catMaybes)
 
+import Data.Range.RangeInternal
+
 data Range a
    = SingletonRange a
    | SpanRange a a
@@ -23,229 +25,19 @@ data Range a
    | InfiniteRange
    deriving(Eq, Show)
 
-{-
- - The following assumptions must be maintained at the beginning of these internal
- - functions so that we can reason about what we are given.
- -
- - RangeMerge assumptions:
- - * The span ranges will never overlap the bounds. 
- - * The span ranges are always sorted in ascending order by the first element.
- - * The lower and upper bounds never overlap in such a way to make it an infinite range.
- -}
-data RangeMerge a = RM
-   { largestLowerBound :: Maybe a
-   , largestUpperBound :: Maybe a
-   , spanRanges :: [(a, a)]
-   }
-   | IRM
-   deriving (Show)
-
-emptyRangeMerge :: RangeMerge a
-emptyRangeMerge = RM Nothing Nothing []
-
--- an intersection of a value followed by a union of that value should be the identity.
--- This is false. An intersection of a value followed by a union of that value should be
--- the value itself.
--- (1, 3) union (3, 4) => (1, 4)
--- (1, 3) intersection (3, 4) = (3, 3)
--- ((1, 3) intersection (3, 4)) union (3, 4) => (3, 4)
-
-unionRange :: (Ord a) => Range a -> RangeMerge a -> RangeMerge a
-unionRange InfiniteRange rm = IRM
-unionRange (LowerBoundRange lower) rm = case largestLowerBound rm of
-   Just currentLowest -> rm { largestLowerBound = Just $ min lower currentLowest }
-   Nothing -> rm { largestLowerBound = Just lower }
-
-unionRanges :: [Range a] -> RangeMerge a -> RangeMerge a
-unionRanges = error "not implemented yet"
-
 union :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]
 union a b = exportRangeMerge $ unionRangeMerges (loadRanges a) (loadRanges b)
 
 intersection :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]
 intersection a b = exportRangeMerge $ intersectionRangeMerges (loadRanges a) (loadRanges b)
 
-intersectionRanges :: [Range a] -> RangeMerge a -> RangeMerge a
-intersectionRanges = error "not implemented yet"
-
-testRM = loadRanges [SpanRange 4 5, SpanRange 7 9]
-testRM2 = loadRanges [SpanRange 3 3, SpanRange 7 12, UpperBoundRange 4]
-
-{-
-intersectSpansRM :: (Ord a) => RangeMerge a -> (a, a) -> [(a, a)]
-intersectSpansRM rm sp@(lower, upper) = intersectedSpans
-   where 
-      spans = spanRanges rm
-      intersectedSpans = catMaybes $ map (intersectCompareSpan sp) spans
-
-      largestSpan :: Ord a => [(a, a)] -> [(a, a)]
-      largestSpan [] = []
-      largestSpan xs = (foldr1 (\(l, m) (x, y) -> (min l x, max m y)) xs) : []
-
-intersectCompareSpan :: Ord a => (a, a) -> (a, a) -> Maybe (a, a)
-intersectCompareSpan f@(l, m) s@(x, y) = if isBetween l s || isBetween m s
-   then Just (max l x, min m y)
-   else Nothing
--}
-
-intersectSpansRM :: (Ord a) => RangeMerge a -> RangeMerge a -> RangeMerge a
-intersectSpansRM one two = RM Nothing Nothing newSpans
-   where
-      newSpans = intersectSpans . sortSpans $ insertionSort (spanRanges one) (spanRanges two) 
-
-insertionSort :: (Ord a) => [(a, a)] -> [(a, a)] -> [(a, a)]
-insertionSort (f : fs) (s : ss) = case comparing fst f s of
-   LT -> f : insertionSort fs (s : ss)
-   EQ -> f : s : insertionSort fs ss
-   GT -> s : insertionSort (f : fs) ss
-insertionSort [] xs = xs
-insertionSort xs [] = xs
-
--- This function assumes that you are given sorted input from which to intersect
-intersectSpans :: (Ord a) => [(a, a)] -> [(a, a)]
-intersectSpans (f@(a, b) : s@(x, y) : xs) = if isBetween x f
-   then (max a x, min b y) : intersectSpans remainder
-   else intersectSpans remainder
-   where
-      remainder = s : xs
-intersectSpans _ = [] -- There is nothing left to intersect with, return nothing.
-
-unionSpans :: Ord a => [(a, a)] -> [(a, a)]
-unionSpans (f@(a, b) : s@(x, y) : xs) = if isBetween x f 
-   then unionSpans ((a, max b y) : xs)
-   else f : unionSpans (s : xs)
-unionSpans xs = xs
-
-joinIntersectSortSpans :: (Ord a, Enum a) => [(a, a)] -> [(a, a)]
-joinIntersectSortSpans = joinCombineSortSpans intersectSpans 
-
-joinUnionSortSpans :: (Ord a, Enum a) => [(a, a)] -> [(a, a)]
-joinUnionSortSpans = joinCombineSortSpans unionSpans
-
 joinCombineSortSpans :: (Ord a, Enum a) => ([(a, a)] -> [(a, a)]) -> [(a, a)] -> [(a, a)]
 joinCombineSortSpans combine = joinSpans . combine . sortSpans
-
-sortSpans :: (Ord a) => [(a, a)] -> [(a, a)]
-sortSpans = sortBy (comparing fst)
-         
-joinSpans :: (Ord a, Enum a) => [(a, a)] -> [(a, a)]
-joinSpans (f@(a, b) : s@(x, y) : xs) = 
-   if succ b == x
-      then joinSpans $ (a, y) : xs
-      else f : joinSpans (s : xs)
-joinSpans xs = xs
-
-intersectWith :: (Ord a) => (a -> (a, a) -> Maybe (a, a)) -> Maybe a -> [(a, a)] -> [(a, a)]
-intersectWith _ Nothing _ = []
-intersectWith fix (Just lower) xs = catMaybes $ fmap (fix lower) xs
-
-fixLower :: (Ord a) => a -> (a, a) -> Maybe (a, a)
-fixLower lower (x, y) = if lower <= y
-   then Just (max lower x, y)
-   else Nothing
-
-fixUpper :: (Ord a) => a -> (a, a) -> Maybe (a, a)
-fixUpper upper (x, y) = if x <= upper
-   then Just (x, min y upper)
-   else Nothing
 
 -- Calculate the intersection of the spans
 -- Calculate the intersection of the spans with the opposite bounds
 -- Gather the five separate results together and perform a sorted union
 
-intersectionRangeMerges :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a -> RangeMerge a
-intersectionRangeMerges IRM two = two
-intersectionRangeMerges one IRM = one
-intersectionRangeMerges one two = RM
-   { largestLowerBound = newLowerBound
-   , largestUpperBound = newUpperBound
-   , spanRanges = joinedSpans
-   }
-   where 
-      lowerOneSpans = intersectWith fixLower (largestLowerBound one) (spanRanges two)
-      lowerTwoSpans = intersectWith fixLower (largestLowerBound two) (spanRanges one)
-      upperOneSpans = intersectWith fixUpper (largestUpperBound one) (spanRanges two)
-      upperTwoSpans = intersectWith fixUpper (largestUpperBound two) (spanRanges one)
-      intersectedSpans = intersectSpans $ insertionSort (spanRanges one) (spanRanges two) 
-
-      sortedResults = foldr1 insertionSort 
-         [ lowerOneSpans
-         , lowerTwoSpans
-         , upperOneSpans
-         , upperTwoSpans
-         , intersectedSpans
-         ]
-
-      joinedSpans = joinSpans . unionSpans $ sortedResults
-
-      newLowerBound = calculateNewBound largestLowerBound max one two
-      newUpperBound = calculateNewBound largestUpperBound min one two
-
-      calculateNewBound 
-         :: (Ord a) 
-         => (RangeMerge a -> Maybe a) 
-         -> (a -> a -> a) 
-         -> RangeMerge a -> RangeMerge a -> Maybe a
-      calculateNewBound ext comp one two = case (ext one, ext two) of
-         (Just x, Just y) -> Just $ comp x y
-         (z, Nothing) -> Nothing
-         (Nothing, z) -> Nothing
-
-unionRangeMerges :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a -> RangeMerge a
-unionRangeMerges IRM _ = IRM
-unionRangeMerges _ IRM = IRM
-unionRangeMerges one two = foldr appendSpanRM boundedRM joinedSpans
-   where
-      newLowerBound = calculateNewBound largestLowerBound min one two
-      newUpperBound = calculateNewBound largestUpperBound max one two
-
-      sortedSpans = insertionSort (spanRanges one) (spanRanges two)
-      joinedSpans = joinSpans . unionSpans $ sortedSpans
-
-      boundedRM = RM
-         { largestLowerBound = newLowerBound
-         , largestUpperBound = newUpperBound
-         , spanRanges = []
-         }
-
-      calculateNewBound 
-         :: (Ord a) 
-         => (RangeMerge a -> Maybe a) 
-         -> (a -> a -> a) 
-         -> RangeMerge a -> RangeMerge a -> Maybe a
-      calculateNewBound ext comp one two = case (ext one, ext two) of
-         (Just x, Just y) -> Just $ comp x y
-         (z, Nothing) -> z
-         (Nothing, z) -> z
-
-appendSpanRM :: (Ord a, Enum a) => (a, a) -> RangeMerge a -> RangeMerge a
-appendSpanRM _ IRM = IRM
-appendSpanRM sp@(lower, higher) rm = 
-   if (newUpper, newLower) == (lub, llb)
-      then newRangesRM
-         { spanRanges = sp : spanRanges rm
-         }
-      else newRangesRM
-   where
-      newRangesRM = rm 
-         { largestLowerBound = newLower
-         , largestUpperBound = newUpper
-         }
-
-      lub = largestUpperBound rm
-      llb = largestLowerBound rm
-
-      newLower = do
-         bound <- llb
-         if bound <= higher
-            then return (min bound lower)
-            else return bound
-
-      newUpper = do
-         bound <- lub
-         if lower <= bound
-            then return (max bound higher)
-            else return bound
 
 -- If it was an infinite range then it should not be after an intersection unless it was
 -- an intersection with another infinite range.
@@ -276,6 +68,10 @@ intersectionRange (SpanRange lower upper) rm = rm
    -- they would be faster to update I suspect, lets start with not sorted
    , spanRanges = joinUnionSortSpans . ((lower, upper) :) . spanRanges $ rm
    }
+   where
+      joinUnionSortSpans :: (Ord a, Enum a) => [(a, a)] -> [(a, a)]
+      joinUnionSortSpans = joinCombineSortSpans unionSpans
+
 intersectionRange (SingletonRange value) rm = intersectionRange (SpanRange value value) rm
    -- You need to update the spans using the new bound that has been added in. Every span
    -- needs to be updated.
@@ -354,9 +150,6 @@ inRange (SpanRange x y) value = isBetween value (x, y)
 inRange (LowerBoundRange lower) value = lower <= value
 inRange (UpperBoundRange upper) value = value <= upper
 inRange InfiniteRange _ = True
-
-isBetween :: (Ord a) => a -> (a, a) -> Bool
-isBetween a (x, y) = (x <= a) && (a <= y)
 
 mergeRanges :: (Ord a, Enum a) => [Range a] -> [Range a]
 mergeRanges = exportRangeMerge . loadRanges

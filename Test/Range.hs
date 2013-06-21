@@ -65,6 +65,13 @@ tests_inRange = testGroup "inRange Function"
  -
  -}
 
+-- an intersection of a value followed by a union of that value should be the identity.
+-- This is false. An intersection of a value followed by a union of that value should be
+-- the value itself.
+-- (1, 3) union (3, 4) => (1, 4)
+-- (1, 3) intersection (3, 4) = (3, 3)
+-- ((1, 3) intersection (3, 4)) union (3, 4) => (3, 4)
+
 --tests :: [Test]
 tests = [ tests_inRange ]
 
