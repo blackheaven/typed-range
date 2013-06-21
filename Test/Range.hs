@@ -42,14 +42,30 @@ prop_span_contains (SpanContains (begin, end) middle) = inRange (SpanRange begin
 prop_infinite_range_contains_everything :: Integer -> Bool
 prop_infinite_range_contains_everything value = inRange InfiniteRange value
 
-tests_string = testGroup "inRange Function"
+tests_inRange = testGroup "inRange Function"
    [ testProperty "equal singletons in range" prop_singleton_in_range
    , testProperty "unequal singletons not in range" prop_singleton_not_in_range
    , testProperty "spans contain values in their middles" prop_span_contains
    , testProperty "infinite ranges contain everything" prop_infinite_range_contains_everything
    ]
 
+{-
+ - Example properties 
+ - prop_union_with_empty_is_self
+ - prop_interseciton_with_infinite_is_self
+ - prop_demorgans_law when I finally implement a not operation
+ -
+ - After you do an intersection I want to test that only the bits that are in the
+ - intersection are still in range
+ -
+ - After you do a union I want to test that everything from both ranges is still in range
+ -
+ - After you perform a not operation I want to confirm that everything that was once in
+ - range is no longer in range.
+ -
+ -}
+
 --tests :: [Test]
-tests = [ tests_string ]
+tests = [ tests_inRange ]
 
 main = defaultMain tests

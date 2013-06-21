@@ -59,11 +59,17 @@ unionRange (LowerBoundRange lower) rm = case largestLowerBound rm of
 unionRanges :: [Range a] -> RangeMerge a -> RangeMerge a
 unionRanges = error "not implemented yet"
 
+union :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]
+union a b = exportRangeMerge $ unionRangeMerges (loadRanges a) (loadRanges b)
+
+intersection :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]
+intersection a b = exportRangeMerge $ intersectionRangeMerges (loadRanges a) (loadRanges b)
+
 intersectionRanges :: [Range a] -> RangeMerge a -> RangeMerge a
 intersectionRanges = error "not implemented yet"
 
-testRM = loadRanges [SpanRange 2 4, SpanRange 6 9]
-testRM2 = loadRanges [SpanRange 3 5, SpanRange 7 12, LowerBoundRange 4]
+testRM = loadRanges [SpanRange 4 5, SpanRange 7 9]
+testRM2 = loadRanges [SpanRange 3 3, SpanRange 7 12, UpperBoundRange 4]
 
 {-
 intersectSpansRM :: (Ord a) => RangeMerge a -> (a, a) -> [(a, a)]
@@ -90,7 +96,7 @@ intersectSpansRM one two = RM Nothing Nothing newSpans
 insertionSort :: (Ord a) => [(a, a)] -> [(a, a)] -> [(a, a)]
 insertionSort (f : fs) (s : ss) = case comparing fst f s of
    LT -> f : insertionSort fs (s : ss)
-   EQ -> f : insertionSort fs (s : ss)
+   EQ -> f : s : insertionSort fs ss
    GT -> s : insertionSort (f : fs) ss
 insertionSort [] xs = xs
 insertionSort xs [] = xs
@@ -148,6 +154,8 @@ fixUpper upper (x, y) = if x <= upper
 -- Gather the five separate results together and perform a sorted union
 
 intersectionRangeMerges :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a -> RangeMerge a
+intersectionRangeMerges IRM two = two
+intersectionRangeMerges one IRM = one
 intersectionRangeMerges one two = RM
    { largestLowerBound = newLowerBound
    , largestUpperBound = newUpperBound
@@ -174,13 +182,70 @@ intersectionRangeMerges one two = RM
       newUpperBound = calculateNewBound largestUpperBound min one two
 
       calculateNewBound 
-         :: (RangeMerge a -> Maybe a) 
+         :: (Ord a) 
+         => (RangeMerge a -> Maybe a) 
          -> (a -> a -> a) 
          -> RangeMerge a -> RangeMerge a -> Maybe a
       calculateNewBound ext comp one two = case (ext one, ext two) of
          (Just x, Just y) -> Just $ comp x y
          (z, Nothing) -> Nothing
          (Nothing, z) -> Nothing
+
+unionRangeMerges :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a -> RangeMerge a
+unionRangeMerges IRM _ = IRM
+unionRangeMerges _ IRM = IRM
+unionRangeMerges one two = foldr appendSpanRM boundedRM joinedSpans
+   where
+      newLowerBound = calculateNewBound largestLowerBound min one two
+      newUpperBound = calculateNewBound largestUpperBound max one two
+
+      sortedSpans = insertionSort (spanRanges one) (spanRanges two)
+      joinedSpans = joinSpans . unionSpans $ sortedSpans
+
+      boundedRM = RM
+         { largestLowerBound = newLowerBound
+         , largestUpperBound = newUpperBound
+         , spanRanges = []
+         }
+
+      calculateNewBound 
+         :: (Ord a) 
+         => (RangeMerge a -> Maybe a) 
+         -> (a -> a -> a) 
+         -> RangeMerge a -> RangeMerge a -> Maybe a
+      calculateNewBound ext comp one two = case (ext one, ext two) of
+         (Just x, Just y) -> Just $ comp x y
+         (z, Nothing) -> z
+         (Nothing, z) -> z
+
+appendSpanRM :: (Ord a, Enum a) => (a, a) -> RangeMerge a -> RangeMerge a
+appendSpanRM _ IRM = IRM
+appendSpanRM sp@(lower, higher) rm = 
+   if (newUpper, newLower) == (lub, llb)
+      then newRangesRM
+         { spanRanges = sp : spanRanges rm
+         }
+      else newRangesRM
+   where
+      newRangesRM = rm 
+         { largestLowerBound = newLower
+         , largestUpperBound = newUpper
+         }
+
+      lub = largestUpperBound rm
+      llb = largestLowerBound rm
+
+      newLower = do
+         bound <- llb
+         if bound <= higher
+            then return (min bound lower)
+            else return bound
+
+      newUpper = do
+         bound <- lub
+         if lower <= bound
+            then return (max bound higher)
+            else return bound
 
 -- If it was an infinite range then it should not be after an intersection unless it was
 -- an intersection with another infinite range.
