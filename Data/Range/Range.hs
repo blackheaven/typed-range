@@ -15,7 +15,10 @@ import Data.List (sortBy, foldl)
 import Data.Either (partitionEithers)
 import Data.Maybe (catMaybes)
 
+-- TODO try and keep these imports down to a minimum.
 import Data.Range.RangeInternal
+import Data.Range.Spans
+import Data.Range.Util
 
 data Range a
    = SingletonRange a
@@ -30,9 +33,6 @@ union a b = exportRangeMerge $ unionRangeMerges (loadRanges a) (loadRanges b)
 
 intersection :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]
 intersection a b = exportRangeMerge $ intersectionRangeMerges (loadRanges a) (loadRanges b)
-
-joinCombineSortSpans :: (Ord a, Enum a) => ([(a, a)] -> [(a, a)]) -> [(a, a)] -> [(a, a)]
-joinCombineSortSpans combine = joinSpans . combine . sortSpans
 
 -- Calculate the intersection of the spans
 -- Calculate the intersection of the spans with the opposite bounds
@@ -70,7 +70,7 @@ intersectionRange (SpanRange lower upper) rm = rm
    }
    where
       joinUnionSortSpans :: (Ord a, Enum a) => [(a, a)] -> [(a, a)]
-      joinUnionSortSpans = joinCombineSortSpans unionSpans
+      joinUnionSortSpans = joinSpans . unionSpans . sortSpans
 
 intersectionRange (SingletonRange value) rm = intersectionRange (SpanRange value value) rm
    -- You need to update the spans using the new bound that has been added in. Every span

@@ -4,6 +4,9 @@ import Data.List (sortBy)
 import Data.Maybe (catMaybes)
 import Data.Ord (comparing)
 
+import Data.Range.Spans
+import Data.Range.Util
+
 {-
  - The following assumptions must be maintained at the beginning of these internal
  - functions so that we can reason about what we are given.
@@ -24,38 +27,7 @@ data RangeMerge a = RM
 -- BEGIN UTILITY CODE
 -- TODO it feels like I should be able to implement this more cleverly than this and that
 -- it belongs in a shared module
-insertionSort :: (Ord a) => (a -> a -> Ordering) -> [a] -> [a] -> [a]
-insertionSort comp xs ys = go xs ys
-   where
-      go (f : fs) (s : ss) = case comp f s of 
-         LT -> f : go fs (s : ss)
-         EQ -> f : s : go fs ss
-         GT -> s : go (f : fs) ss
-      go [] xs = xs
-      go xs [] = xs
-
-isBetween :: (Ord a) => a -> (a, a) -> Bool
-isBetween a (x, y) = (x <= a) && (a <= y)
 -- END UTILITY CODE
-
-insertionSortSpans :: (Ord a) => [(a, a)] -> [(a, a)] -> [(a, a)]
-insertionSortSpans = insertionSort (comparing fst)
-
-sortSpans :: (Ord a) => [(a, a)] -> [(a, a)]
-sortSpans = sortBy (comparing fst)
-
-joinSpans :: (Ord a, Enum a) => [(a, a)] -> [(a, a)]
-joinSpans (f@(a, b) : s@(x, y) : xs) = 
-   if succ b == x
-      then joinSpans $ (a, y) : xs
-      else f : joinSpans (s : xs)
-joinSpans xs = xs
-
-unionSpans :: Ord a => [(a, a)] -> [(a, a)]
-unionSpans (f@(a, b) : s@(x, y) : xs) = if isBetween x f 
-   then unionSpans ((a, max b y) : xs)
-   else f : unionSpans (s : xs)
-unionSpans xs = xs
 
 emptyRangeMerge :: RangeMerge a
 emptyRangeMerge = RM Nothing Nothing []
