@@ -1,6 +1,5 @@
 module Data.Range.RangeInternal where
 
-import Data.List (sortBy, insertBy)
 import Data.Maybe (catMaybes)
 import Data.Ord (comparing)
 
@@ -26,19 +25,47 @@ data RangeMerge a = RM
    deriving (Show)
 
 -- This function adds an existing range into a range merge
+-- TODO write a test case that asserts that this function always ensures that 
 storeRange :: (Ord a) => Range a -> RangeMerge a -> RangeMerge a
 storeRange InfiniteRange rm = IRM
-storeRange (LowerBoundRange lower) rm = case largestLowerBound rm of
-   Just currentLowest -> rm { largestLowerBound = Just $ min lower currentLowest }
-   Nothing -> rm { largestLowerBound = Just lower }
-storeRange (UpperBoundRange upper) rm = case largestUpperBound rm of
-   Just currentUpper -> rm { largestUpperBound = Just $ max upper currentUpper }
-   Nothing -> rm { largestUpperBound = Just upper }
+-- TODO we should look to see if lenses could clean up this code.
+storeRange (LowerBoundRange lower) rm = rm { largestLowerBound = newBound }
+   where 
+      newBound = Just $ maybe lower (min lower) (largestLowerBound rm)
+storeRange (UpperBoundRange upper) rm = rm { largestUpperBound = newBound }
+   where
+      newBound = Just $ maybe upper (max upper) (largestUpperBound rm)
 storeRange (SpanRange x y) rm = rm { spanRanges = (x, y) `insertSpan` spanRanges rm }
 storeRange (SingletonRange x) rm = rm { spanRanges = (x, x) `insertSpan` spanRanges rm }
 
-insertSpan :: Ord a => (a, b) -> [(a, b)] -> [(a, b)]
-insertSpan = insertBy (comparing fst)
+-- TODO Refactor this
+potentiallyMergeBounds :: (Enum a, Ord a) => RangeMerge a -> RangeMerge a
+potentiallyMergeBounds rm = case (upper, lower) of
+   (Just high, Just low) -> if succ high >= low then IRM else rm
+   _ -> rm
+   where
+      upper = largestUpperBound rm
+      lower = largestLowerBound rm
+
+optimizeRangeMerge :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a
+optimizeRangeMerge = potentiallyMergeBounds
+-- END REFACTOR REQURED
+
+exportRangeMerge :: (Ord a, Enum a) => RangeMerge a -> [Range a]
+exportRangeMerge IRM = [InfiniteRange]
+exportRangeMerge rm = putAll $ optimizeRangeMerge rm
+   where
+      putAll IRM = [InfiniteRange]
+      putAll (RM lb up spans) = 
+         putLowerBound lb ++ putUpperBound up ++ putSpans spans
+
+      putLowerBound = maybe [] (return . LowerBoundRange)
+      putUpperBound = maybe [] (return . UpperBoundRange)
+      putSpans = map simplifySpan
+
+      simplifySpan (x, y) = if x == y
+         then SingletonRange x
+         else SpanRange x y
 
 storeRanges :: (Ord a) => RangeMerge a -> [Range a] -> RangeMerge a
 storeRanges = foldr storeRange
@@ -116,6 +143,7 @@ intersectionRangeMerges one two = RM
          (z, Nothing) -> Nothing
          (Nothing, z) -> Nothing
 
+-- TODO when doing a union it is possible that you could end up with an infinite range
 unionRangeMerges :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a -> RangeMerge a
 unionRangeMerges IRM _ = IRM
 unionRangeMerges _ IRM = IRM

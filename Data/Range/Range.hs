@@ -34,6 +34,7 @@ intersection a b = exportRangeMerge $ intersectionRangeMerges (loadRanges a) (lo
 
 -- If it was an infinite range then it should not be after an intersection unless it was
 -- an intersection with another infinite range.
+{-
 intersectionRange :: (Ord a, Enum a) => Range a -> RangeMerge a -> RangeMerge a
 intersectionRange InfiniteRange rm = rm -- Intersection with universe remains same
 intersectionRange (LowerBoundRange lower) rm = rm
@@ -66,41 +67,9 @@ intersectionRange (SpanRange lower upper) rm = rm
       joinUnionSortSpans = joinSpans . unionSpans . sortSpans
 
 intersectionRange (SingletonRange value) rm = intersectionRange (SpanRange value value) rm
+-}
    -- You need to update the spans using the new bound that has been added in. Every span
    -- needs to be updated.
-
--- OLD Code Below
-
--- Assume that the compression returns a sorted list
-
--- Should use this when a span or bound update happens...so after any update happens at
--- all
-potentiallyMergeBounds :: (Enum a, Ord a) => RangeMerge a -> RangeMerge a
-potentiallyMergeBounds rm = case (upper, lower) of
-   (Just high, Just low) -> if succ high >= low then IRM else rm
-   _ -> rm
-   where
-      upper = largestUpperBound rm
-      lower = largestLowerBound rm
-
-optimizeRangeMerge :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a
-optimizeRangeMerge = potentiallyMergeBounds
-
-exportRangeMerge :: (Ord a, Enum a) => RangeMerge a -> [Range a]
-exportRangeMerge IRM = [InfiniteRange]
-exportRangeMerge rm = putAll $ optimizeRangeMerge rm
-   where
-      putAll IRM = [InfiniteRange]
-      putAll (RM lb up spans) = 
-         putLowerBound lb ++ putUpperBound up ++ putSpans spans
-
-      putLowerBound = maybe [] (return . LowerBoundRange)
-      putUpperBound = maybe [] (return . UpperBoundRange)
-      putSpans = map simplifySpan
-
-      simplifySpan (x, y) = if x == y
-         then SingletonRange x
-         else SpanRange x y
 
 rangesOverlap :: (Ord a) => Range a -> Range a -> Bool
 rangesOverlap (SingletonRange a) (SingletonRange b) = a == b

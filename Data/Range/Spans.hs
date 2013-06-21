@@ -1,13 +1,16 @@
 -- This module contains every function that purely performs operations on spans.
 module Data.Range.Spans where
 
-import Data.List (sortBy)
+import Data.List (sortBy, insertBy)
 import Data.Ord (comparing)
 
 import Data.Range.Util
    
 insertionSortSpans :: (Ord a) => [(a, a)] -> [(a, a)] -> [(a, a)]
 insertionSortSpans = insertionSort (comparing fst)
+
+insertSpan :: Ord a => (a, b) -> [(a, b)] -> [(a, b)]
+insertSpan = insertBy (comparing fst)
 
 sortSpans :: (Ord a) => [(a, a)] -> [(a, a)]
 sortSpans = sortBy (comparing fst)
