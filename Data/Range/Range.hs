@@ -23,6 +23,15 @@ data Range a
    | InfiniteRange
    deriving(Eq, Show)
 
+{-
+ - The following assumptions must be maintained at the beginning of these internal
+ - functions so that we can reason about what we are given.
+ -
+ - RangeMerge assumptions:
+ - * The span ranges will never overlap the bounds. 
+ - * The span ranges are always sorted in ascending order by the first element.
+ - * The lower and upper bounds never overlap in such a way to make it an infinite range.
+ -}
 data RangeMerge a = RM
    { largestLowerBound :: Maybe a
    , largestUpperBound :: Maybe a
@@ -142,7 +151,6 @@ intersectionRangeMerges :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a -> Ra
 intersectionRangeMerges one two = RM
    { largestLowerBound = newLowerBound
    , largestUpperBound = newUpperBound
-   -- TODO the merge operation is incorrect here and needs to be combined with a filter
    , spanRanges = joinedSpans
    }
    where 
@@ -171,10 +179,8 @@ intersectionRangeMerges one two = RM
          -> RangeMerge a -> RangeMerge a -> Maybe a
       calculateNewBound ext comp one two = case (ext one, ext two) of
          (Just x, Just y) -> Just $ comp x y
-         (z, Nothing) -> z
-         (Nothing, z) -> z
-
-
+         (z, Nothing) -> Nothing
+         (Nothing, z) -> Nothing
 
 -- If it was an infinite range then it should not be after an intersection unless it was
 -- an intersection with another infinite range.
