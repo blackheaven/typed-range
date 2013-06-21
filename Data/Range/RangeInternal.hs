@@ -1,9 +1,10 @@
 module Data.Range.RangeInternal where
 
-import Data.List (sortBy)
+import Data.List (sortBy, insertBy)
 import Data.Maybe (catMaybes)
 import Data.Ord (comparing)
 
+import Data.Range.Data
 import Data.Range.Spans
 import Data.Range.Util
 
@@ -24,10 +25,27 @@ data RangeMerge a = RM
    | IRM
    deriving (Show)
 
--- BEGIN UTILITY CODE
--- TODO it feels like I should be able to implement this more cleverly than this and that
--- it belongs in a shared module
--- END UTILITY CODE
+-- This function adds an existing range into a range merge
+storeRange :: (Ord a) => Range a -> RangeMerge a -> RangeMerge a
+storeRange InfiniteRange rm = IRM
+storeRange (LowerBoundRange lower) rm = case largestLowerBound rm of
+   Just currentLowest -> rm { largestLowerBound = Just $ min lower currentLowest }
+   Nothing -> rm { largestLowerBound = Just lower }
+storeRange (UpperBoundRange upper) rm = case largestUpperBound rm of
+   Just currentUpper -> rm { largestUpperBound = Just $ max upper currentUpper }
+   Nothing -> rm { largestUpperBound = Just upper }
+storeRange (SpanRange x y) rm = rm { spanRanges = (x, y) `insertSpan` spanRanges rm }
+storeRange (SingletonRange x) rm = rm { spanRanges = (x, x) `insertSpan` spanRanges rm }
+
+insertSpan :: Ord a => (a, b) -> [(a, b)] -> [(a, b)]
+insertSpan = insertBy (comparing fst)
+
+storeRanges :: (Ord a) => RangeMerge a -> [Range a] -> RangeMerge a
+storeRanges = foldr storeRange
+
+loadRanges :: (Ord a) => [Range a] -> RangeMerge a
+loadRanges = storeRanges emptyRangeMerge
+
 
 emptyRangeMerge :: RangeMerge a
 emptyRangeMerge = RM Nothing Nothing []

@@ -16,17 +16,10 @@ import Data.Either (partitionEithers)
 import Data.Maybe (catMaybes)
 
 -- TODO try and keep these imports down to a minimum.
+import Data.Range.Data
 import Data.Range.RangeInternal
 import Data.Range.Spans
 import Data.Range.Util
-
-data Range a
-   = SingletonRange a
-   | SpanRange a a
-   | LowerBoundRange a
-   | UpperBoundRange a
-   | InfiniteRange
-   deriving(Eq, Show)
 
 union :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]
 union a b = exportRangeMerge $ unionRangeMerges (loadRanges a) (loadRanges b)
@@ -77,23 +70,6 @@ intersectionRange (SingletonRange value) rm = intersectionRange (SpanRange value
    -- needs to be updated.
 
 -- OLD Code Below
-
-storeRange :: (Ord a) => Range a -> RangeMerge a -> RangeMerge a
-storeRange InfiniteRange rm = IRM
-storeRange (LowerBoundRange lower) rm = case largestLowerBound rm of
-   Just currentLowest -> rm { largestLowerBound = Just $ min lower currentLowest }
-   Nothing -> rm { largestLowerBound = Just lower }
-storeRange (UpperBoundRange upper) rm = case largestUpperBound rm of
-   Just currentUpper -> rm { largestUpperBound = Just $ max upper currentUpper }
-   Nothing -> rm { largestUpperBound = Just upper }
-storeRange (SpanRange x y) rm = rm { spanRanges = (x, y) : spanRanges rm }
-storeRange (SingletonRange x) rm = rm { spanRanges = (x, x) : spanRanges rm }
-
-storeRanges :: (Ord a) => RangeMerge a -> [Range a] -> RangeMerge a
-storeRanges = foldr storeRange
-
-loadRanges :: (Ord a) => [Range a] -> RangeMerge a
-loadRanges = storeRanges emptyRangeMerge
 
 -- Assume that the compression returns a sorted list
 
