@@ -27,50 +27,6 @@ union a b = exportRangeMerge $ unionRangeMerges (loadRanges a) (loadRanges b)
 intersection :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]
 intersection a b = exportRangeMerge $ intersectionRangeMerges (loadRanges a) (loadRanges b)
 
--- Calculate the intersection of the spans
--- Calculate the intersection of the spans with the opposite bounds
--- Gather the five separate results together and perform a sorted union
-
-
--- If it was an infinite range then it should not be after an intersection unless it was
--- an intersection with another infinite range.
-{-
-intersectionRange :: (Ord a, Enum a) => Range a -> RangeMerge a -> RangeMerge a
-intersectionRange InfiniteRange rm = rm -- Intersection with universe remains same
-intersectionRange (LowerBoundRange lower) rm = rm
-   { largestLowerBound = largestLowerBound rm >>= return . max lower
-   , spanRanges = catMaybes . map (updateRange lower) . spanRanges $ rm
-   }
-   where
-      updateRange :: (Ord a) => a -> (a, a) -> Maybe (a, a)
-      updateRange lower (begin, end) = if lower <= end
-         then Just (max lower begin, end)
-         else Nothing
-intersectionRange (UpperBoundRange upper) rm = rm
-   { largestUpperBound = largestUpperBound rm >>= return . min upper
-   , spanRanges = catMaybes . map (updateRange upper) . spanRanges $ rm
-   }
-   where
-      updateRange :: (Ord a) => a -> (a, a) -> Maybe (a, a)
-      updateRange upper (begin, end) = if begin <= upper
-         then Just (begin, min upper end)
-         else Nothing
-intersectionRange (SpanRange lower upper) rm = rm
-   -- update the bounds first and then update the spans, if the spans were sorted then
-   { largestUpperBound = largestUpperBound rm >>= return . min upper
-   , largestLowerBound = largestLowerBound rm >>= return . max lower
-   -- they would be faster to update I suspect, lets start with not sorted
-   , spanRanges = joinUnionSortSpans . ((lower, upper) :) . spanRanges $ rm
-   }
-   where
-      joinUnionSortSpans :: (Ord a, Enum a) => [(a, a)] -> [(a, a)]
-      joinUnionSortSpans = joinSpans . unionSpans . sortSpans
-
-intersectionRange (SingletonRange value) rm = intersectionRange (SpanRange value value) rm
--}
-   -- You need to update the spans using the new bound that has been added in. Every span
-   -- needs to be updated.
-
 rangesOverlap :: (Ord a) => Range a -> Range a -> Bool
 rangesOverlap (SingletonRange a) (SingletonRange b) = a == b
 rangesOverlap (SingletonRange a) (SpanRange x y) = isBetween a (x, y)
@@ -85,10 +41,6 @@ rangesOverlap (UpperBoundRange _) (UpperBoundRange _) = True
 rangesOverlap InfiniteRange _ = True
 rangesOverlap a b = rangesOverlap b a
 
--- x- y- will both overlap
--- 3- -9 will overlap
--- x- -y will overlap if x <= y
-
 inRange :: (Ord a) => Range a -> a -> Bool
 inRange (SingletonRange a) value = value == a
 inRange (SpanRange x y) value = isBetween value (x, y)
@@ -98,11 +50,6 @@ inRange InfiniteRange _ = True
 
 mergeRanges :: (Ord a, Enum a) => [Range a] -> [Range a]
 mergeRanges = exportRangeMerge . loadRanges
-
-takeEvenly :: [a] -> [a] -> [a]
-takeEvenly x [] = x
-takeEvenly [] x = x
-takeEvenly (a:as) (b:bs) = a : b : takeEvenly as bs
 
 fromRanges :: (Ord a, Enum a) => [Range a] -> [a]
 fromRanges = concatMap fromRange

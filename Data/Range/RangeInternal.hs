@@ -49,7 +49,7 @@ potentiallyMergeBounds rm = case (upper, lower) of
 
 optimizeRangeMerge :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a
 optimizeRangeMerge = potentiallyMergeBounds
--- END REFACTOR REQURED
+-- END REFACTOR REQUIRED
 
 exportRangeMerge :: (Ord a, Enum a) => RangeMerge a -> [Range a]
 exportRangeMerge IRM = [InfiniteRange]
@@ -200,6 +200,16 @@ appendSpanRM sp@(lower, higher) rm =
             then return (max bound higher)
             else return bound
 
+invertRM :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a
+invertRM IRM = emptyRangeMerge
+invertRM rm = RM
+   { largestUpperBound = error ""
+   , largestLowerBound = error ""
+   , spanRanges = betweenSpans
+   }
+   where
+      betweenSpans = invertSpans . spanRanges $ rm
+
 {-
 unionRange :: (Ord a) => Range a -> RangeMerge a -> RangeMerge a
 unionRange InfiniteRange rm = IRM
@@ -225,3 +235,39 @@ intersectCompareSpan f@(l, m) s@(x, y) = if isBetween l s || isBetween m s
    else Nothing
 -}
 
+-- If it was an infinite range then it should not be after an intersection unless it was
+-- an intersection with another infinite range.
+{-
+intersectionRange :: (Ord a, Enum a) => Range a -> RangeMerge a -> RangeMerge a
+intersectionRange InfiniteRange rm = rm -- Intersection with universe remains same
+intersectionRange (LowerBoundRange lower) rm = rm
+   { largestLowerBound = largestLowerBound rm >>= return . max lower
+   , spanRanges = catMaybes . map (updateRange lower) . spanRanges $ rm
+   }
+   where
+      updateRange :: (Ord a) => a -> (a, a) -> Maybe (a, a)
+      updateRange lower (begin, end) = if lower <= end
+         then Just (max lower begin, end)
+         else Nothing
+intersectionRange (UpperBoundRange upper) rm = rm
+   { largestUpperBound = largestUpperBound rm >>= return . min upper
+   , spanRanges = catMaybes . map (updateRange upper) . spanRanges $ rm
+   }
+   where
+      updateRange :: (Ord a) => a -> (a, a) -> Maybe (a, a)
+      updateRange upper (begin, end) = if begin <= upper
+         then Just (begin, min upper end)
+         else Nothing
+intersectionRange (SpanRange lower upper) rm = rm
+   -- update the bounds first and then update the spans, if the spans were sorted then
+   { largestUpperBound = largestUpperBound rm >>= return . min upper
+   , largestLowerBound = largestLowerBound rm >>= return . max lower
+   -- they would be faster to update I suspect, lets start with not sorted
+   , spanRanges = joinUnionSortSpans . ((lower, upper) :) . spanRanges $ rm
+   }
+   where
+      joinUnionSortSpans :: (Ord a, Enum a) => [(a, a)] -> [(a, a)]
+      joinUnionSortSpans = joinSpans . unionSpans . sortSpans
+
+intersectionRange (SingletonRange value) rm = intersectionRange (SpanRange value value) rm
+-}

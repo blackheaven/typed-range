@@ -44,7 +44,7 @@ cabal-version:       >=1.8
 
 library
   -- Modules exported by the library.
-  exposed-modules:    Data.Range.Range, Data.Range.NestedRange
+  exposed-modules:    Data.Range.Range, Data.Range.NestedRange, Data.Range.RangeTree
   
   -- Modules included in this library but not exported.
   other-modules:  Data.Range.Data
