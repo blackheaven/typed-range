@@ -202,12 +202,25 @@ appendSpanRM sp@(lower, higher) rm =
 
 invertRM :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a
 invertRM IRM = emptyRangeMerge
+invertRM (RM Nothing Nothing []) = IRM
+invertRM (RM (Just lower) Nothing []) = RM Nothing (Just . pred $ lower) []
+invertRM (RM Nothing (Just upper) []) = RM (Just . succ $ upper) Nothing []
+-- TODO deal with the cases where there are no spans here
+invertRM (RM (Just lower) (Just upper) []) = RM Nothing Nothing [(succ upper, pred lower)]
 invertRM rm = RM
-   { largestUpperBound = error ""
-   , largestLowerBound = error ""
+   { largestUpperBound = newUpperBound
+   , largestLowerBound = newLowerBound
    , spanRanges = betweenSpans
    }
    where
+      newUpperBound = case largestUpperBound rm of
+         Just _ -> Nothing
+         Nothing -> Just . pred . fst . head . spanRanges $ rm
+
+      newLowerBound = case largestLowerBound rm of
+         Just _ -> Nothing
+         Nothing -> Just . succ . snd . last . spanRanges $ rm
+
       betweenSpans = invertSpans . spanRanges $ rm
 
 {-
