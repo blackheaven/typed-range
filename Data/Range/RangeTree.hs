@@ -12,7 +12,11 @@ data RangeOperation = RangeUnion | RangeIntersection
 
 data RangeTree a 
    = RangeNode RangeOperation (RangeTree a) (RangeTree a)
-   | RangeLeaf Bool [Range a]
+   | RangeNodeInvert (RangeTree a)
+   | RangeLeaf [Range a]
+
+evaluate :: (Ord a, Enum a) => RangeTree a -> [Range a]
+evaluate = exportRangeMerge . evaluateRangeTree 
 
 evaluateRangeTree :: (Ord a, Enum a) => RangeTree a -> RangeMerge a
 evaluateRangeTree (RangeNode operation left right) = case operation of
@@ -21,10 +25,5 @@ evaluateRangeTree (RangeNode operation left right) = case operation of
    where
       leftEval = evaluateRangeTree left 
       rightEval = evaluateRangeTree right
-evaluateRangeTree (RangeLeaf invertRanges ranges) = outputRM
-   where
-      rm = loadRanges ranges
-      outputRM = if invertRanges
-         then invertRM rm
-         else rm
-
+evaluateRangeTree (RangeNodeInvert node) = invertRM . evaluateRangeTree $ node
+evaluateRangeTree (RangeLeaf ranges) = loadRanges ranges
