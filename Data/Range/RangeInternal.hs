@@ -210,16 +210,26 @@ invertRM (RM (Just lower) (Just upper) []) = RM Nothing Nothing [(succ upper, pr
 invertRM rm = RM
    { largestUpperBound = newUpperBound
    , largestLowerBound = newLowerBound
-   , spanRanges = betweenSpans
+   , spanRanges = upperSpan ++ betweenSpans ++ lowerSpan
    }
    where
+      newLowerValue = succ . snd . last . spanRanges $ rm
+      newUpperValue = pred . fst . head . spanRanges $ rm
+
       newUpperBound = case largestUpperBound rm of
          Just _ -> Nothing
-         Nothing -> Just . pred . fst . head . spanRanges $ rm
+         Nothing -> Just newUpperValue
 
       newLowerBound = case largestLowerBound rm of
          Just _ -> Nothing
-         Nothing -> Just . succ . snd . last . spanRanges $ rm
+         Nothing -> Just newLowerValue
+
+      upperSpan = case largestUpperBound rm of
+         Nothing -> []
+         Just upper -> [(succ upper, newLowerValue)]
+      lowerSpan = case largestLowerBound rm of
+         Nothing -> []
+         Just lower -> [(newLowerValue, pred lower)] 
 
       betweenSpans = invertSpans . spanRanges $ rm
 
