@@ -22,7 +22,7 @@ data RangeMerge a = RM
    , spanRanges :: [(a, a)]
    }
    | IRM
-   deriving (Show)
+   deriving (Show, Eq)
 
 -- This function adds an existing range into a range merge
 -- TODO write a test case that asserts that this function always ensures that 
@@ -205,7 +205,6 @@ invertRM IRM = emptyRangeMerge
 invertRM (RM Nothing Nothing []) = IRM
 invertRM (RM (Just lower) Nothing []) = RM Nothing (Just . pred $ lower) []
 invertRM (RM Nothing (Just upper) []) = RM (Just . succ $ upper) Nothing []
--- TODO deal with the cases where there are no spans here
 invertRM (RM (Just lower) (Just upper) []) = RM Nothing Nothing [(succ upper, pred lower)]
 invertRM rm = RM
    { largestUpperBound = newUpperBound
@@ -226,7 +225,7 @@ invertRM rm = RM
 
       upperSpan = case largestUpperBound rm of
          Nothing -> []
-         Just upper -> [(succ upper, newLowerValue)]
+         Just upper -> [(succ upper, newUpperValue)]
       lowerSpan = case largestLowerBound rm of
          Nothing -> []
          Just lower -> [(newLowerValue, pred lower)] 
