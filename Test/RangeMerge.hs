@@ -56,7 +56,7 @@ instance (Num a, Ord a, Random a) => Arbitrary (RangeMerge a) where
          biggerThan x (Just y) = x > y 
 
 prop_invert_twice_is_identity :: RangeMerge Integer -> Bool
-prop_invert_twice_is_identity x = x == (invertRM . invertRM $ x)
+prop_invert_twice_is_identity x = (invertRM . invertRM $ x) == x
 
 prop_demorgans_law_one :: (RangeMerge Integer, RangeMerge Integer) -> Bool
 prop_demorgans_law_one (a, b) = 
