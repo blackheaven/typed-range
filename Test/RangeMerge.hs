@@ -40,7 +40,7 @@ instance (Num a, Ord a, Random a) => Arbitrary (RangeMerge a) where
 
          generateSpanList :: (Num a, Ord a, Random a) => a -> Gen [(a, a)]
          generateSpanList start = do
-            count <- choose (0, 1000)
+            count <- choose (0, 10)
             helper count start
             where
                helper :: (Num a, Ord a, Random a) => Integer -> a -> Gen [(a, a)]
@@ -58,6 +58,16 @@ instance (Num a, Ord a, Random a) => Arbitrary (RangeMerge a) where
 prop_invert_twice_is_identity :: RangeMerge Integer -> Bool
 prop_invert_twice_is_identity x = x == (invertRM . invertRM $ x)
 
+prop_demorgans_law_one :: (RangeMerge Integer, RangeMerge Integer) -> Bool
+prop_demorgans_law_one (a, b) = 
+   (invertRM (a `unionRangeMerges` b)) == ((invertRM a) `intersectionRangeMerges` (invertRM b))
+
+prop_demorgans_law_two :: (RangeMerge Integer, RangeMerge Integer) -> Bool
+prop_demorgans_law_two (a, b) = 
+   (invertRM (a `intersectionRangeMerges` b)) == ((invertRM a) `unionRangeMerges` (invertRM b))
+
 test_invertRM = testGroup "invertRM function"
    [ testProperty "inverting twice results in identity" prop_invert_twice_is_identity
+   , testProperty "DeMorgan Part 1: not (a or b) == (not a) and (not b)" prop_demorgans_law_one
+   , testProperty "DeMorgan Part 2: not (a and b) == (not a) or (not b)" prop_demorgans_law_two
    ]
