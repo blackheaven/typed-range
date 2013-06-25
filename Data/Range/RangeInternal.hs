@@ -190,15 +190,15 @@ appendSpanRM sp@(lower, higher) rm =
 
       newLower = do
          bound <- llb
-         if bound <= higher
-            then return (min bound lower)
-            else return bound
+         return $ if bound <= higher
+            then min bound lower
+            else bound
 
       newUpper = do
          bound <- lub
-         if lower <= bound
-            then return (max bound higher)
-            else return bound
+         return $ if lower <= bound
+            then max bound higher
+            else bound
 
 invertRM :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a
 invertRM IRM = emptyRangeMerge

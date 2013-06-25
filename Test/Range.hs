@@ -4,12 +4,13 @@ import Test.Framework (defaultMain, testGroup)
 import Test.QuickCheck
 import Test.Framework.Providers.QuickCheck2
 
+import Control.Monad (liftM)
+import Data.List
 import System.Random
 
 import Data.Range.Range
 
-import Data.List
-
+import Test.RangeMerge
 
 data UnequalPair a = UnequalPair (a, a)
    deriving (Show)
@@ -42,7 +43,7 @@ prop_span_contains :: SpanContains Integer -> Bool
 prop_span_contains (SpanContains (begin, end) middle) = inRange (SpanRange begin end) middle
 
 prop_infinite_range_contains_everything :: Integer -> Bool
-prop_infinite_range_contains_everything value = inRange InfiniteRange value
+prop_infinite_range_contains_everything = inRange InfiniteRange
 
 tests_inRange = testGroup "inRange Function"
    [ testProperty "equal singletons in range" prop_singleton_in_range
@@ -60,26 +61,32 @@ instance (Num a, Ord a, Enum a) => Arbitrary (Range a) where
       , generateInfiniteRange
       ]
       where
-         generateSingleton = arbitrarySizedIntegral >>= return . SingletonRange
+         generateSingleton = liftM SingletonRange arbitrarySizedIntegral
          generateSpan = do
             first <- arbitrarySizedIntegral 
             second <- arbitrarySizedIntegral `suchThat` (> first)
             return $ SpanRange first second
-         generateLowerBound = arbitrarySizedIntegral >>= return . LowerBoundRange
-         generateUpperBound = arbitrarySizedIntegral >>= return . UpperBoundRange
+         generateLowerBound = liftM LowerBoundRange arbitrarySizedIntegral
+         generateUpperBound = liftM UpperBoundRange arbitrarySizedIntegral
          generateInfiniteRange :: Gen (Range a)
          generateInfiniteRange = return InfiniteRange
 
 -- This property is only true for the invertRM function because the invert function will
 -- also get rid of duplicates.
+{-
 prop_invert_twice_is_identity :: [Range Integer] -> Bool
 prop_invert_twice_is_identity x = null (x \\ inverted) && null (inverted \\ x)
    where
       inverted = invert . invert $ x
+-}
 
+-- Next idea, the size after two inverts never gets larger
+
+{-
 testInvert = testGroup "invert function"
    [ testProperty "inverting twice results in identity" prop_invert_twice_is_identity
    ]
+   -}
 
 {-
  - Example properties 
@@ -107,7 +114,7 @@ testInvert = testGroup "invert function"
 --tests :: [Test]
 tests = 
    [ tests_inRange 
-   , testInvert
+   , test_invertRM
    ]
 
 main = defaultMain tests
