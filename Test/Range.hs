@@ -8,6 +8,8 @@ import System.Random
 
 import Data.Range.Range
 
+import Data.List
+
 
 data UnequalPair a = UnequalPair (a, a)
    deriving (Show)
@@ -49,6 +51,36 @@ tests_inRange = testGroup "inRange Function"
    , testProperty "infinite ranges contain everything" prop_infinite_range_contains_everything
    ]
 
+instance (Num a, Ord a, Enum a) => Arbitrary (Range a) where
+   arbitrary = oneof 
+      [ generateSingleton
+      , generateSpan
+      , generateLowerBound
+      , generateUpperBound
+      , generateInfiniteRange
+      ]
+      where
+         generateSingleton = arbitrarySizedIntegral >>= return . SingletonRange
+         generateSpan = do
+            first <- arbitrarySizedIntegral 
+            second <- arbitrarySizedIntegral `suchThat` (> first)
+            return $ SpanRange first second
+         generateLowerBound = arbitrarySizedIntegral >>= return . LowerBoundRange
+         generateUpperBound = arbitrarySizedIntegral >>= return . UpperBoundRange
+         generateInfiniteRange :: Gen (Range a)
+         generateInfiniteRange = return InfiniteRange
+
+-- This property is only true for the invertRM function because the invert function will
+-- also get rid of duplicates.
+prop_invert_twice_is_identity :: [Range Integer] -> Bool
+prop_invert_twice_is_identity x = null (x \\ inverted) && null (inverted \\ x)
+   where
+      inverted = invert . invert $ x
+
+testInvert = testGroup "invert function"
+   [ testProperty "inverting twice results in identity" prop_invert_twice_is_identity
+   ]
+
 {-
  - Example properties 
  - prop_union_with_empty_is_self
@@ -73,6 +105,9 @@ tests_inRange = testGroup "inRange Function"
 -- ((1, 3) intersection (3, 4)) union (3, 4) => (3, 4)
 
 --tests :: [Test]
-tests = [ tests_inRange ]
+tests = 
+   [ tests_inRange 
+   , testInvert
+   ]
 
 main = defaultMain tests

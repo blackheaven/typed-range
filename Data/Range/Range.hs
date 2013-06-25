@@ -3,6 +3,9 @@ module Data.Range.Range (
       inRange,
       rangesOverlap,
       mergeRanges,
+      invert,
+      union,
+      intersection,
       fromRanges,
       fromMergedRanges
    ) where
@@ -26,6 +29,9 @@ union a b = exportRangeMerge $ unionRangeMerges (loadRanges a) (loadRanges b)
 
 intersection :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]
 intersection a b = exportRangeMerge $ intersectionRangeMerges (loadRanges a) (loadRanges b)
+
+invert :: (Ord a, Enum a) => [Range a] -> [Range a]
+invert = exportRangeMerge . invertRM . loadRanges
 
 rangesOverlap :: (Ord a) => Range a -> Range a -> Bool
 rangesOverlap (SingletonRange a) (SingletonRange b) = a == b
