@@ -161,7 +161,7 @@ intersectionRangeMerges one two = RM
          (z, Nothing) -> Nothing
          (Nothing, z) -> Nothing
 
--- TODO when doing a union it is possible that you could end up with an infinite range
+-- TODO when you have finished check for joins with the bounds
 unionRangeMerges :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a -> RangeMerge a
 unionRangeMerges IRM _ = IRM
 unionRangeMerges _ IRM = IRM
@@ -170,9 +170,9 @@ unionRangeMerges one two = infiniteCheck filterTwo
       filterOne = foldr filterLowerBound boundedRM joinedSpans
       filterTwo = foldr filterUpperBound (filterOne { spanRanges = [] }) (spanRanges filterOne)
       
-      infiniteCheck :: (Ord a) => RangeMerge a -> RangeMerge a
+      infiniteCheck :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a
       infiniteCheck IRM = IRM
-      infiniteCheck rm@(RM (Just x) (Just y) _) = if x <= y 
+      infiniteCheck rm@(RM (Just x) (Just y) _) = if x <= succ y 
          then IRM
          else rm
       infiniteCheck rm = rm
