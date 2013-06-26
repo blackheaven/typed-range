@@ -80,9 +80,10 @@ emptyRangeMerge = RM Nothing Nothing []
 intersectSpansRM :: (Ord a) => RangeMerge a -> RangeMerge a -> RangeMerge a
 intersectSpansRM one two = RM Nothing Nothing newSpans
    where
-      newSpans = intersectSpans $ insertionSortSpans (spanRanges one) (spanRanges two) 
+      newSpans = intersectSpans (spanRanges one) (spanRanges two) 
 
 -- This function assumes that you are given sorted input from which to intersect
+{-
 intersectSpans :: (Ord a) => [(a, a)] -> [(a, a)]
 intersectSpans (f@(a, b) : s@(x, y) : xs) = if isBetween x f
    then (max a x, min b y) : intersectSpans remainder
@@ -90,6 +91,7 @@ intersectSpans (f@(a, b) : s@(x, y) : xs) = if isBetween x f
    where
       remainder = s : xs
 intersectSpans _ = [] -- There is nothing left to intersect with, return nothing.
+-}
 
 intersectWith :: (Ord a) => (a -> (a, a) -> Maybe (a, a)) -> Maybe a -> [(a, a)] -> [(a, a)]
 intersectWith _ Nothing _ = []
@@ -118,7 +120,7 @@ intersectionRangeMerges one two = RM
       lowerTwoSpans = intersectWith fixLower (largestLowerBound two) (spanRanges one)
       upperOneSpans = intersectWith fixUpper (largestUpperBound one) (spanRanges two)
       upperTwoSpans = intersectWith fixUpper (largestUpperBound two) (spanRanges one)
-      intersectedSpans = intersectSpans $ insertionSortSpans (spanRanges one) (spanRanges two) 
+      intersectedSpans = intersectSpans (spanRanges one) (spanRanges two) 
 
       sortedResults = foldr1 insertionSortSpans 
          [ lowerOneSpans
@@ -126,6 +128,7 @@ intersectionRangeMerges one two = RM
          , upperOneSpans
          , upperTwoSpans
          , intersectedSpans
+         , calculateBoundOverlap one two
          ]
 
       joinedSpans = joinSpans . unionSpans $ sortedResults
@@ -133,6 +136,21 @@ intersectionRangeMerges one two = RM
       newLowerBound = calculateNewBound largestLowerBound max one two
       newUpperBound = calculateNewBound largestUpperBound min one two
 
+      calculateBoundOverlap :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a -> [(a, a)]
+      calculateBoundOverlap one two = catMaybes [oneWay, secondWay]
+         where
+            oneWay = case (largestLowerBound one, largestUpperBound two) of
+               (Just x, Just y) -> if y >= x 
+                  then Just (x, y)
+                  else Nothing
+               _ -> Nothing
+
+            secondWay = case (largestLowerBound two, largestUpperBound one) of
+               (Just x, Just y) -> if y >= x 
+                  then Just (x, y)
+                  else Nothing
+               _ -> Nothing
+      
       calculateNewBound 
          :: (Ord a) 
          => (RangeMerge a -> Maybe a) 
@@ -147,8 +165,18 @@ intersectionRangeMerges one two = RM
 unionRangeMerges :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a -> RangeMerge a
 unionRangeMerges IRM _ = IRM
 unionRangeMerges _ IRM = IRM
-unionRangeMerges one two = foldr appendSpanRM boundedRM joinedSpans
+unionRangeMerges one two = infiniteCheck filterTwo
    where
+      filterOne = foldr filterLowerBound boundedRM joinedSpans
+      filterTwo = foldr filterUpperBound (filterOne { spanRanges = [] }) (spanRanges filterOne)
+      
+      infiniteCheck :: (Ord a) => RangeMerge a -> RangeMerge a
+      infiniteCheck IRM = IRM
+      infiniteCheck rm@(RM (Just x) (Just y) _) = if x <= y 
+         then IRM
+         else rm
+      infiniteCheck rm = rm
+
       newLowerBound = calculateNewBound largestLowerBound min one two
       newUpperBound = calculateNewBound largestUpperBound max one two
 
@@ -171,19 +199,50 @@ unionRangeMerges one two = foldr appendSpanRM boundedRM joinedSpans
          (z, Nothing) -> z
          (Nothing, z) -> z
 
+      --filterOverlappedSpnas
+
+filterLowerBound :: Ord a => (a, a) -> RangeMerge a -> RangeMerge a
+filterLowerBound _ IRM = IRM
+filterLowerBound a rm@(RM Nothing _ _) = rm { spanRanges = a : spanRanges rm }
+filterLowerBound s@(lower, _) rm@(RM (Just lowestBound) _ _) = 
+   case boundCmp lowestBound s of
+      GT -> rm { spanRanges = s : spanRanges rm }
+      LT -> rm
+      EQ -> rm { largestLowerBound = Just lower }
+
+filterUpperBound :: Ord a => (a, a) -> RangeMerge a -> RangeMerge a
+filterUpperBound _ IRM = IRM
+filterUpperBound a rm@(RM _ Nothing _) = rm { spanRanges = a : spanRanges rm }
+filterUpperBound s@(_, upper) rm@(RM _ (Just upperBound) _) =
+   case boundCmp upperBound s of
+      LT -> rm { spanRanges = s : spanRanges rm }
+      GT -> rm
+      EQ -> rm { largestUpperBound = Just upper }
+
+boundCmp :: Ord a => a -> (a, a) -> Ordering
+boundCmp x s@(a, _) = if isBetween x s
+   then EQ
+   else if x < a then LT else GT
+
 appendSpanRM :: (Ord a, Enum a) => (a, a) -> RangeMerge a -> RangeMerge a
 appendSpanRM _ IRM = IRM
 appendSpanRM sp@(lower, higher) rm = 
-   if (newUpper, newLower) == (lub, llb)
+   if (newUpper, newLower) == (lub, llb) && isLower lower newLower && (Just higher) > newUpper
       then newRangesRM
          { spanRanges = sp : spanRanges rm
          }
       else newRangesRM
+         { spanRanges = spanRanges rm
+         }
    where
       newRangesRM = rm 
          { largestLowerBound = newLower
          , largestUpperBound = newUpper
          }
+
+      isLower :: Ord a => a -> Maybe a -> Bool
+      isLower _ Nothing = True
+      isLower y (Just x) = y < x
 
       lub = largestUpperBound rm
       llb = largestLowerBound rm

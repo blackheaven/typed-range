@@ -10,6 +10,21 @@ import Data.Range.Util
 insertionSortSpans :: (Ord a) => [(a, a)] -> [(a, a)] -> [(a, a)]
 insertionSortSpans = insertionSort (comparing fst)
 
+spanCmp :: Ord a => (a, a) -> (a, a) -> Ordering
+spanCmp x@(xlow, xhigh) y@(ylow, yhigh) = if isBetween xlow y || isBetween ylow x
+   then EQ
+   else if xhigh < ylow then LT else GT
+
+intersectSpans :: (Ord a) => [(a, a)] -> [(a, a)] -> [(a, a)]
+intersectSpans (x@(xlow, xup) : xs) (y@(ylow, yup) : ys) = 
+   case spanCmp x y of
+      EQ -> (max xlow ylow, min xup yup) : if xup < yup
+         then intersectSpans xs (y : ys)
+         else intersectSpans (x : xs) ys
+      LT -> intersectSpans xs (y : ys)
+      GT -> intersectSpans (x : xs) ys
+intersectSpans _ _ = []
+
 insertSpan :: Ord a => (a, b) -> [(a, b)] -> [(a, b)]
 insertSpan = insertBy (comparing fst)
 

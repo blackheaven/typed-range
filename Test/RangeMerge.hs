@@ -19,7 +19,7 @@ instance (Num a, Ord a, Random a) => Arbitrary (RangeMerge a) where
       spans <- generateSpanList (fromMaybe possibleSpanStart upperBound)
       possibleLower <- arbitrarySizedIntegral
       lowerBound <- oneof 
-         [ fmap Just $ fmap ((+) $ maxMaybe (fmap snd $ lastMaybe spans) $ maxMaybe upperBound possibleSpanStart) $ choose (1, 100)
+         [ fmap Just $ fmap ((+) $ maxMaybe (fmap snd $ lastMaybe spans) $ maxMaybe upperBound possibleSpanStart) $ choose (2, 100)
          , return Nothing
          ]
       return RM 
@@ -46,8 +46,8 @@ instance (Num a, Ord a, Random a) => Arbitrary (RangeMerge a) where
                helper :: (Num a, Ord a, Random a) => Integer -> a -> Gen [(a, a)]
                helper 0 _ = return []
                helper x start = do
-                  first <- fmap (+start) $ choose (1, 100)
-                  second <- fmap (+first) $ choose (1, 100)
+                  first <- fmap (+start) $ choose (2, 100)
+                  second <- fmap (+first) $ choose (2, 100)
                   remainder <- helper (x - 1) second
                   return $ (first, second) : remainder
 
