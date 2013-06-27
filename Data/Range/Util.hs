@@ -4,6 +4,8 @@ module Data.Range.Util where
 -- of the code but could be easily pulled into separate and completely non-related
 -- codebases or libraries.
 
+import Control.Monad (ap)
+
 insertionSort :: (Ord a) => (a -> a -> Ordering) -> [a] -> [a] -> [a]
 insertionSort comp xs ys = go xs ys
    where
@@ -21,3 +23,7 @@ takeEvenly :: [a] -> [a] -> [a]
 takeEvenly (a : as) (b : bs) = a : b : takeEvenly as bs
 takeEvenly xs [] = xs
 takeEvenly [] xs = xs
+   
+pairs :: [a] -> [(a, a)]
+pairs [] = []
+pairs xs = zip xs (tail xs)

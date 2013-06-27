@@ -50,3 +50,8 @@ unionSpans xs = xs
 invertSpans :: (Ord a, Enum a) => [(a, a)] -> [(a, a)]
 invertSpans ((_, x) : s@(y, _) : xs) = (succ x, pred y) : invertSpans (s : xs)
 invertSpans _ = []
+
+hasOverlaps :: (Ord a, Enum a) => [(a, a)] -> Bool
+hasOverlaps xs = any isOverlapping (pairs xs)
+   where
+      isOverlapping ((x, y), (a, b)) = isBetween x (pred a, succ b) || isBetween a (pred x, succ y)
