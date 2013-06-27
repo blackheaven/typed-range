@@ -201,28 +201,28 @@ unionRangeMerges one two = infiniteCheck filterTwo
 
       --filterOverlappedSpnas
 
-filterLowerBound :: Ord a => (a, a) -> RangeMerge a -> RangeMerge a
+filterLowerBound :: (Ord a, Enum a) => (a, a) -> RangeMerge a -> RangeMerge a
 filterLowerBound _ IRM = IRM
 filterLowerBound a rm@(RM Nothing _ _) = rm { spanRanges = a : spanRanges rm }
 filterLowerBound s@(lower, _) rm@(RM (Just lowestBound) _ _) = 
    case boundCmp lowestBound s of
       GT -> rm { spanRanges = s : spanRanges rm }
       LT -> rm
-      EQ -> rm { largestLowerBound = Just lower }
+      EQ -> rm { largestLowerBound = Just $ min lowestBound lower }
 
-filterUpperBound :: Ord a => (a, a) -> RangeMerge a -> RangeMerge a
+filterUpperBound :: (Ord a, Enum a) => (a, a) -> RangeMerge a -> RangeMerge a
 filterUpperBound _ IRM = IRM
 filterUpperBound a rm@(RM _ Nothing _) = rm { spanRanges = a : spanRanges rm }
 filterUpperBound s@(_, upper) rm@(RM _ (Just upperBound) _) =
    case boundCmp upperBound s of
       LT -> rm { spanRanges = s : spanRanges rm }
       GT -> rm
-      EQ -> rm { largestUpperBound = Just upper }
+      EQ -> rm { largestUpperBound = Just $ max upperBound upper }
 
-boundCmp :: Ord a => a -> (a, a) -> Ordering
-boundCmp x s@(a, _) = if isBetween x s
+boundCmp :: (Ord a, Enum a) => a -> (a, a) -> Ordering
+boundCmp x s@(a, b) = if isBetween x (pred a, succ b)
    then EQ
-   else if x < a then LT else GT
+   else if x < pred a then LT else GT
 
 appendSpanRM :: (Ord a, Enum a) => (a, a) -> RangeMerge a -> RangeMerge a
 appendSpanRM _ IRM = IRM
