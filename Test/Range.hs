@@ -71,17 +71,6 @@ instance (Num a, Ord a, Enum a) => Arbitrary (Range a) where
          generateInfiniteRange :: Gen (Range a)
          generateInfiniteRange = return InfiniteRange
 
-{-
- - After you do an intersection I want to test that only the bits that are in the
- - intersection are still in range
- -
- - After you do a union I want to test that everything from both ranges is still in range
- -
- - After you perform a not operation I want to confirm that everything that was once in
- - range is no longer in range.
- -
- -}
-
 -- an intersection of a value followed by a union of that value should be the identity.
 -- This is false. An intersection of a value followed by a union of that value should be
 -- the value itself.
@@ -97,10 +86,38 @@ test_ranges_invert = testGroup "invert function for ranges"
    [ testProperty "element in range is now out of range after invert" prop_in_range_out_of_range_after_invert
    ]
 
+prop_elements_before_union_or_true :: ([Integer], [Range Integer], [Range Integer]) -> Bool
+prop_elements_before_union_or_true (points, a, b) = actual == expected
+   where
+      before_a = map (inRanges a) points
+      before_b = map (inRanges b) points
+      unionRanges = a `union` b
+      actual = map (inRanges unionRanges) points
+      expected = zipWith (||) before_a before_b
+
+prop_elements_before_intersection_and_true :: ([Integer], [Range Integer], [Range Integer]) -> Bool
+prop_elements_before_intersection_and_true (points, a, b) = actual == expected
+   where
+      before_a = map (inRanges a) points
+      before_b = map (inRanges b) points
+      intersectedRanges = a `intersection` b
+      actual = map (inRanges intersectedRanges) points
+      expected = zipWith (&&) before_a before_b
+
+test_union = testGroup "union function properties"
+   [ testProperty "Unions from before OR together and continue to work" prop_elements_before_union_or_true
+   ]
+
+test_intersection = testGroup "intersection function properties"
+   [ testProperty "Intersection before AND's to after" prop_elements_before_intersection_and_true
+   ]
+
 --tests :: [Test]
 tests = 
    [ tests_inRange 
    , test_ranges_invert
+   , test_union
+   , test_intersection
    ]
    ++ rangeMergeTestCases
 
