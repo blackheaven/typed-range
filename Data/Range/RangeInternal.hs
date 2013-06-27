@@ -25,8 +25,10 @@ data RangeMerge a = RM
    deriving (Show, Eq)
 
 -- This function adds an existing range into a range merge
--- TODO write a test case that asserts that this function always ensures that 
+-- TODO write a test case that asserts that this function always ensures that the range
+-- merge is added correctly
 storeRange :: (Ord a) => Range a -> RangeMerge a -> RangeMerge a
+storeRange _ IRM = IRM
 storeRange InfiniteRange rm = IRM
 -- TODO we should look to see if lenses could clean up this code.
 storeRange (LowerBoundRange lower) rm = rm { largestLowerBound = newBound }
@@ -35,25 +37,12 @@ storeRange (LowerBoundRange lower) rm = rm { largestLowerBound = newBound }
 storeRange (UpperBoundRange upper) rm = rm { largestUpperBound = newBound }
    where
       newBound = Just $ maybe upper (max upper) (largestUpperBound rm)
-storeRange (SpanRange x y) rm = rm { spanRanges = (x, y) `insertSpan` spanRanges rm }
-storeRange (SingletonRange x) rm = rm { spanRanges = (x, x) `insertSpan` spanRanges rm }
-
--- TODO Refactor this
-potentiallyMergeBounds :: (Enum a, Ord a) => RangeMerge a -> RangeMerge a
-potentiallyMergeBounds rm = case (upper, lower) of
-   (Just high, Just low) -> if succ high >= low then IRM else rm
-   _ -> rm
-   where
-      upper = largestUpperBound rm
-      lower = largestLowerBound rm
-
-optimizeRangeMerge :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a
-optimizeRangeMerge = potentiallyMergeBounds
--- END REFACTOR REQUIRED
+storeRange (SpanRange x y) rm = rm { spanRanges = unionSpans $ (x, y) `insertSpan` spanRanges rm }
+storeRange (SingletonRange x) rm = rm { spanRanges = unionSpans $ (x, x) `insertSpan` spanRanges rm }
 
 exportRangeMerge :: (Ord a, Enum a) => RangeMerge a -> [Range a]
 exportRangeMerge IRM = [InfiniteRange]
-exportRangeMerge rm = putAll $ optimizeRangeMerge rm
+exportRangeMerge rm = putAll rm
    where
       putAll IRM = [InfiniteRange]
       putAll (RM lb up spans) = 
@@ -73,7 +62,6 @@ storeRanges = foldr storeRange
 loadRanges :: (Ord a) => [Range a] -> RangeMerge a
 loadRanges = storeRanges emptyRangeMerge
 
-
 emptyRangeMerge :: RangeMerge a
 emptyRangeMerge = RM Nothing Nothing []
 
@@ -81,17 +69,6 @@ intersectSpansRM :: (Ord a) => RangeMerge a -> RangeMerge a -> RangeMerge a
 intersectSpansRM one two = RM Nothing Nothing newSpans
    where
       newSpans = intersectSpans (spanRanges one) (spanRanges two) 
-
--- This function assumes that you are given sorted input from which to intersect
-{-
-intersectSpans :: (Ord a) => [(a, a)] -> [(a, a)]
-intersectSpans (f@(a, b) : s@(x, y) : xs) = if isBetween x f
-   then (max a x, min b y) : intersectSpans remainder
-   else intersectSpans remainder
-   where
-      remainder = s : xs
-intersectSpans _ = [] -- There is nothing left to intersect with, return nothing.
--}
 
 intersectWith :: (Ord a) => (a -> (a, a) -> Maybe (a, a)) -> Maybe a -> [(a, a)] -> [(a, a)]
 intersectWith _ Nothing _ = []
@@ -198,8 +175,6 @@ unionRangeMerges one two = infiniteCheck filterTwo
          (Just x, Just y) -> Just $ comp x y
          (z, Nothing) -> z
          (Nothing, z) -> z
-
-      --filterOverlappedSpnas
 
 filterLowerBound :: (Ord a, Enum a) => (a, a) -> RangeMerge a -> RangeMerge a
 filterLowerBound _ IRM = IRM
