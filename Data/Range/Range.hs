@@ -1,6 +1,7 @@
 module Data.Range.Range (
       Range(..),
       inRange,
+      inRanges,
       rangesOverlap,
       mergeRanges,
       invert,
@@ -43,6 +44,9 @@ inRange (SpanRange x y) value = isBetween value (x, y)
 inRange (LowerBoundRange lower) value = lower <= value
 inRange (UpperBoundRange upper) value = value <= upper
 inRange InfiniteRange _ = True
+
+inRanges :: (Ord a) => [Range a] -> a -> Bool
+inRanges ranges value = any (flip inRange value) ranges
 
 mergeRanges :: (Ord a, Enum a) => [Range a] -> [Range a]
 mergeRanges = exportRangeMerge . loadRanges

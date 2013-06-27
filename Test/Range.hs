@@ -23,8 +23,6 @@ instance (Num a, Eq a) => Arbitrary (UnequalPair a) where
       second <- arbitrarySizedIntegral `suchThat` (/= first)
       return $ UnequalPair (first, second)
 
-data ArbitrarySingletonPair = ASP 
-
 prop_singleton_in_range :: Integer -> Bool
 prop_singleton_in_range a = inRange (SingletonRange a) a
 
@@ -73,29 +71,7 @@ instance (Num a, Ord a, Enum a) => Arbitrary (Range a) where
          generateInfiniteRange :: Gen (Range a)
          generateInfiniteRange = return InfiniteRange
 
--- This property is only true for the invertRM function because the invert function will
--- also get rid of duplicates.
 {-
-prop_invert_twice_is_identity :: [Range Integer] -> Bool
-prop_invert_twice_is_identity x = null (x \\ inverted) && null (inverted \\ x)
-   where
-      inverted = invert . invert $ x
--}
-
--- Next idea, the size after two inverts never gets larger
-
-{-
-testInvert = testGroup "invert function"
-   [ testProperty "inverting twice results in identity" prop_invert_twice_is_identity
-   ]
-   -}
-
-{-
- - Example properties 
- - prop_union_with_empty_is_self
- - prop_interseciton_with_infinite_is_self
- - prop_demorgans_law when I finally implement a not operation
- -
  - After you do an intersection I want to test that only the bits that are in the
  - intersection are still in range
  -
@@ -113,10 +89,19 @@ testInvert = testGroup "invert function"
 -- (1, 3) intersection (3, 4) = (3, 3)
 -- ((1, 3) intersection (3, 4)) union (3, 4) => (3, 4)
 
+prop_in_range_out_of_range_after_invert :: (Integer, [Range Integer]) -> Bool
+prop_in_range_out_of_range_after_invert (point, ranges) = 
+   (inRanges ranges point) /= (inRanges (invert ranges) point)
+
+test_ranges_invert = testGroup "invert function for ranges"
+   [ testProperty "element in range is now out of range after invert" prop_in_range_out_of_range_after_invert
+   ]
+
 --tests :: [Test]
 tests = 
    [ tests_inRange 
-   , test_invertRM
+   , test_ranges_invert
    ]
+   ++ rangeMergeTestCases
 
 main = defaultMain tests

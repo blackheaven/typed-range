@@ -24,21 +24,21 @@ data RangeMerge a = RM
    | IRM
    deriving (Show, Eq)
 
--- This function adds an existing range into a range merge
--- TODO write a test case that asserts that this function always ensures that the range
--- merge is added correctly
-storeRange :: (Ord a) => Range a -> RangeMerge a -> RangeMerge a
-storeRange _ IRM = IRM
-storeRange InfiniteRange _ = IRM
--- TODO we should look to see if lenses could clean up this code.
-storeRange (LowerBoundRange lower) rm = rm { largestLowerBound = newBound }
-   where 
-      newBound = Just $ maybe lower (min lower) (largestLowerBound rm)
-storeRange (UpperBoundRange upper) rm = rm { largestUpperBound = newBound }
-   where
-      newBound = Just $ maybe upper (max upper) (largestUpperBound rm)
-storeRange (SpanRange x y) rm = rm { spanRanges = unionSpans $ (x, y) `insertSpan` spanRanges rm }
-storeRange (SingletonRange x) rm = rm { spanRanges = unionSpans $ (x, x) `insertSpan` spanRanges rm }
+emptyRangeMerge :: RangeMerge a
+emptyRangeMerge = RM Nothing Nothing []
+
+storeRange :: (Ord a) => Range a -> RangeMerge a
+storeRange InfiniteRange = IRM
+storeRange (LowerBoundRange lower) = emptyRangeMerge { largestLowerBound = Just lower }
+storeRange (UpperBoundRange upper) = emptyRangeMerge { largestUpperBound = Just upper }
+storeRange (SpanRange x y) = emptyRangeMerge { spanRanges = [(min x y, max x y)] }
+storeRange (SingletonRange x) = emptyRangeMerge { spanRanges = [(x, x)] }
+
+storeRanges :: (Ord a, Enum a) => RangeMerge a -> [Range a] -> RangeMerge a
+storeRanges start ranges = foldr unionRangeMerges start (map storeRange ranges)
+
+loadRanges :: (Ord a, Enum a) => [Range a] -> RangeMerge a
+loadRanges = storeRanges emptyRangeMerge
 
 exportRangeMerge :: (Ord a, Enum a) => RangeMerge a -> [Range a]
 exportRangeMerge IRM = [InfiniteRange]
@@ -55,15 +55,6 @@ exportRangeMerge rm = putAll rm
       simplifySpan (x, y) = if x == y
          then SingletonRange x
          else SpanRange x y
-
-storeRanges :: (Ord a) => RangeMerge a -> [Range a] -> RangeMerge a
-storeRanges = foldr storeRange
-
-loadRanges :: (Ord a) => [Range a] -> RangeMerge a
-loadRanges = storeRanges emptyRangeMerge
-
-emptyRangeMerge :: RangeMerge a
-emptyRangeMerge = RM Nothing Nothing []
 
 intersectSpansRM :: (Ord a) => RangeMerge a -> RangeMerge a -> RangeMerge a
 intersectSpansRM one two = RM Nothing Nothing newSpans
