@@ -1,8 +1,11 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+-- This is only okay in test classes
+
 module Test.RangeMerge (
    test_invertRM
    ) where
 
-import Test.Framework (defaultMain, testGroup)
+import Test.Framework (testGroup)
 import Test.QuickCheck
 import Test.Framework.Providers.QuickCheck2
 
@@ -17,7 +20,6 @@ instance (Num a, Ord a, Random a) => Arbitrary (RangeMerge a) where
       upperBound <- maybeNumber
       possibleSpanStart <- arbitrarySizedIntegral
       spans <- generateSpanList (fromMaybe possibleSpanStart upperBound)
-      possibleLower <- arbitrarySizedIntegral
       lowerBound <- oneof 
          [ fmap Just $ fmap ((+) $ maxMaybe (fmap snd $ lastMaybe spans) $ maxMaybe upperBound possibleSpanStart) $ choose (2, 100)
          , return Nothing
@@ -50,10 +52,6 @@ instance (Num a, Ord a, Random a) => Arbitrary (RangeMerge a) where
                   second <- fmap (+first) $ choose (2, 100)
                   remainder <- helper (x - 1) second
                   return $ (first, second) : remainder
-
-         biggerThan :: Ord a => a -> Maybe a -> Bool
-         biggerThan _ Nothing = True
-         biggerThan x (Just y) = x > y 
 
 prop_invert_twice_is_identity :: RangeMerge Integer -> Bool
 prop_invert_twice_is_identity x = (invertRM . invertRM $ x) == x

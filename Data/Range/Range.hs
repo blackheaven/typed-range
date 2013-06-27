@@ -10,18 +10,8 @@ module Data.Range.Range (
       fromMergedRanges
    ) where
 
--- TODO flip range
--- TODO invert range (invent not range)
-
-import Data.Ord (comparing)
-import Data.List (sortBy, foldl)
-import Data.Either (partitionEithers)
-import Data.Maybe (catMaybes)
-
--- TODO try and keep these imports down to a minimum.
 import Data.Range.Data
 import Data.Range.RangeInternal
-import Data.Range.Spans
 import Data.Range.Util
 
 union :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]

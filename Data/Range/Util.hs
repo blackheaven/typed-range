@@ -4,8 +4,6 @@ module Data.Range.Util where
 -- of the code but could be easily pulled into separate and completely non-related
 -- codebases or libraries.
 
-import Control.Monad (ap)
-
 insertionSort :: (Ord a) => (a -> a -> Ordering) -> [a] -> [a] -> [a]
 insertionSort comp xs ys = go xs ys
    where
@@ -13,8 +11,8 @@ insertionSort comp xs ys = go xs ys
          LT -> f : go fs (s : ss)
          EQ -> f : s : go fs ss
          GT -> s : go (f : fs) ss
-      go [] xs = xs
-      go xs [] = xs
+      go [] z = z
+      go z [] = z
 
 isBetween :: (Ord a) => a -> (a, a) -> Bool
 isBetween a (x, y) = (x <= a) && (a <= y)

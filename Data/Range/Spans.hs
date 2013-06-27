@@ -11,7 +11,7 @@ insertionSortSpans :: (Ord a) => [(a, a)] -> [(a, a)] -> [(a, a)]
 insertionSortSpans = insertionSort (comparing fst)
 
 spanCmp :: Ord a => (a, a) -> (a, a) -> Ordering
-spanCmp x@(xlow, xhigh) y@(ylow, yhigh) = if isBetween xlow y || isBetween ylow x
+spanCmp x@(xlow, xhigh) y@(ylow, _) = if isBetween xlow y || isBetween ylow x
    then EQ
    else if xhigh < ylow then LT else GT
 

@@ -1,7 +1,7 @@
 module Data.Range.RangeInternal where
 
 import Data.Maybe (catMaybes)
-import Data.Ord (comparing)
+--import Data.Ord (comparing)
 
 import Data.Range.Data
 import Data.Range.Spans
@@ -29,7 +29,7 @@ data RangeMerge a = RM
 -- merge is added correctly
 storeRange :: (Ord a) => Range a -> RangeMerge a -> RangeMerge a
 storeRange _ IRM = IRM
-storeRange InfiniteRange rm = IRM
+storeRange InfiniteRange _ = IRM
 -- TODO we should look to see if lenses could clean up this code.
 storeRange (LowerBoundRange lower) rm = rm { largestLowerBound = newBound }
    where 
@@ -113,21 +113,6 @@ intersectionRangeMerges one two = RM
       newLowerBound = calculateNewBound largestLowerBound max one two
       newUpperBound = calculateNewBound largestUpperBound min one two
 
-      calculateBoundOverlap :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a -> [(a, a)]
-      calculateBoundOverlap one two = catMaybes [oneWay, secondWay]
-         where
-            oneWay = case (largestLowerBound one, largestUpperBound two) of
-               (Just x, Just y) -> if y >= x 
-                  then Just (x, y)
-                  else Nothing
-               _ -> Nothing
-
-            secondWay = case (largestLowerBound two, largestUpperBound one) of
-               (Just x, Just y) -> if y >= x 
-                  then Just (x, y)
-                  else Nothing
-               _ -> Nothing
-      
       calculateNewBound 
          :: (Ord a) 
          => (RangeMerge a -> Maybe a) 
@@ -135,9 +120,24 @@ intersectionRangeMerges one two = RM
          -> RangeMerge a -> RangeMerge a -> Maybe a
       calculateNewBound ext comp one two = case (ext one, ext two) of
          (Just x, Just y) -> Just $ comp x y
-         (z, Nothing) -> Nothing
-         (Nothing, z) -> Nothing
+         (_, Nothing) -> Nothing
+         (Nothing, _) -> Nothing
 
+calculateBoundOverlap :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a -> [(a, a)]
+calculateBoundOverlap one two = catMaybes [oneWay, secondWay]
+   where
+      oneWay = case (largestLowerBound one, largestUpperBound two) of
+         (Just x, Just y) -> if y >= x 
+            then Just (x, y)
+            else Nothing
+         _ -> Nothing
+
+      secondWay = case (largestLowerBound two, largestUpperBound one) of
+         (Just x, Just y) -> if y >= x 
+            then Just (x, y)
+            else Nothing
+         _ -> Nothing
+      
 -- TODO when you have finished check for joins with the bounds
 unionRangeMerges :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a -> RangeMerge a
 unionRangeMerges IRM _ = IRM
@@ -195,7 +195,7 @@ filterUpperBound s@(_, upper) rm@(RM _ (Just upperBound) _) =
       EQ -> rm { largestUpperBound = Just $ max upperBound upper }
 
 boundCmp :: (Ord a, Enum a) => a -> (a, a) -> Ordering
-boundCmp x s@(a, b) = if isBetween x (pred a, succ b)
+boundCmp x (a, b) = if isBetween x (pred a, succ b)
    then EQ
    else if x < pred a then LT else GT
 

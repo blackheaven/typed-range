@@ -1,3 +1,6 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+-- This is only okay in test classes
+
 module Main where
 
 import Test.Framework (defaultMain, testGroup)
@@ -5,7 +8,6 @@ import Test.QuickCheck
 import Test.Framework.Providers.QuickCheck2
 
 import Control.Monad (liftM)
-import Data.List
 import System.Random
 
 import Data.Range.Range
