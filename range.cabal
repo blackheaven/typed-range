@@ -44,7 +44,10 @@ cabal-version:       >=1.8
 
 library
   -- Modules exported by the library.
-  exposed-modules:    Data.Range.Range, Data.Range.NestedRange, Data.Range.RangeTree
+  exposed-modules:    Data.Range.Range
+                      , Data.Range.NestedRange
+                      , Data.Range.RangeTree
+                      , Data.Range.Parser
   
   -- Modules included in this library but not exported.
   other-modules:  Data.Range.Data
@@ -54,7 +57,11 @@ library
 
   
   -- Other library packages from which modules are imported.
-  build-depends:       base ==4.5.*
+  build-depends:  base ==4.5.*
+                  , parsec >= 3
+
+  ghc-options: -Wall
+   
   
 Test-Suite test-range
    type:       exitcode-stdio-1.0

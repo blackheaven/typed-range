@@ -18,6 +18,7 @@ data RangeTree a
 evaluate :: (Ord a, Enum a) => RangeTree a -> [Range a]
 evaluate = exportRangeMerge . evaluateRangeTree 
 
+-- TODO for the sake of testing this should be moved into its own module.
 evaluateRangeTree :: (Ord a, Enum a) => RangeTree a -> RangeMerge a
 evaluateRangeTree (RangeNode operation left right) = case operation of
    RangeUnion -> leftEval `unionRangeMerges` rightEval
