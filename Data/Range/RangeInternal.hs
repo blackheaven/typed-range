@@ -129,7 +129,6 @@ calculateBoundOverlap one two = catMaybes [oneWay, secondWay]
             else Nothing
          _ -> Nothing
       
--- TODO when you have finished check for joins with the bounds
 unionRangeMerges :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a -> RangeMerge a
 unionRangeMerges IRM _ = IRM
 unionRangeMerges _ IRM = IRM
