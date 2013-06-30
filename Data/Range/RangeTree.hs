@@ -1,5 +1,7 @@
 module Data.Range.RangeTree 
    ( evaluate
+   , RangeTree(..)
+   , RangeOperation(..)
    ) where
 
 -- TODO I want to come up with a really efficient wap of performing these calculations. To

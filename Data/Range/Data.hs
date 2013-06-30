@@ -12,8 +12,13 @@ data Range a
    | InfiniteRange         -- ^ Represents an infinite range over all values.
    deriving(Eq, Show)
 
+-- | These are the operations that can join two disjunct lists of ranges together.
 data RangeOperation = RangeUnion | RangeIntersection
 
+-- | A Range Tree is a construct that can be built and then efficiently evaluated so that
+-- you can compress an entire tree of operations on ranges into a single range quickly.
+-- The only purpose of this tree is to allow efficient construction of range operations
+-- that can be evaluated as is required.
 data RangeTree a 
    = RangeNode RangeOperation (RangeTree a) (RangeTree a)
    | RangeNodeInvert (RangeTree a)
