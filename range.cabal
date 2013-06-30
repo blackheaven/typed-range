@@ -16,7 +16,11 @@ version:             0.1.0.0
 synopsis:            This has a bunch of code for specifying and managing ranges in your code.
 
 -- A longer description of the package.
--- description:         
+description:         range is built to allow you to use ranges in your code quickly and
+                     efficiently. There are many occasions where you will want to check if
+                     certain values are within a range and this library will make it
+                     trivial for you to do so. It also attempts to do so in the most
+                     efficient way possible.
 
 -- The license under which the package is released.
 license:             MIT
