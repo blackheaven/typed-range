@@ -11,3 +11,11 @@ data Range a
    | UpperBoundRange a     -- ^ Represents a range with only an inclusive upper bound.
    | InfiniteRange         -- ^ Represents an infinite range over all values.
    deriving(Eq, Show)
+
+data RangeOperation = RangeUnion | RangeIntersection
+
+data RangeTree a 
+   = RangeNode RangeOperation (RangeTree a) (RangeTree a)
+   | RangeNodeInvert (RangeTree a)
+   | RangeLeaf [Range a]
+
