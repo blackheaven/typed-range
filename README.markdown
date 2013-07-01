@@ -18,17 +18,15 @@ Here is a small example program written using this library:
     
     import Data.Range.Range
     
-    putStatus :: String -> Bool -> IO ()
-    putStatus test result = do
-       putStr $ test ++ ": "
-       putStrLn . show $ result
+    putStatus :: Bool -> String -> IO ()
+    putStatus result test = putStrLn $ "[" ++ (show result) ++ "] " ++ test
     
     main = do
-       putStatus "Singletons Match" $ inRanges [SingletonRange 4] 4
-       putStatus "Value in Range" $ inRanges [SpanRange 0 10] 7
-       putStatus "Value in Long Range" $ inRanges [LowerBoundRange 80] 12345
-       putStatus "Value in Infinite Range" $ inRanges [InfiniteRange] 8287423
-       putStatus "NOT in Composite Range (expect false)" $ inRanges [LowerBoundRange 50, SpanRange 1 30] 44
+       inRanges [SingletonRange 4]   4        `putStatus` "Singletons Match"
+       inRanges [SpanRange 0 10]     7        `putStatus` "Value in Range"
+       inRanges [LowerBoundRange 80] 12345    `putStatus` "Value in Long Range"
+       inRanges [InfiniteRange]      8287423  `putStatus` "Value in Infinite Range"
+       inRanges [LowerBoundRange 50, SpanRange 1 30] 44 `putStatus` "NOT in Composite Range (expect false)"
 
 If you wish to see a better example in a real program then you should check out [splitter][1].
 
