@@ -12,8 +12,43 @@ efficient as light as possible while still being useful.
 
 ## Example Code
 
-TODO run through a very simple example of using the codebase.
+Here is a small example program written using this library:
+
+    module Main where
+    
+    import Data.Range.Range
+    
+    putStatus :: String -> Bool -> IO ()
+    putStatus test result = do
+       putStr $ test ++ ": "
+       putStrLn . show $ result
+    
+    main = do
+       putStatus "Singletons Match" $ inRanges [SingletonRange 4] 4
+       putStatus "Value in Range" $ inRanges [SpanRange 0 10] 7
+       putStatus "Value in Long Range" $ inRanges [LowerBoundRange 80] 12345
+       putStatus "Value in Infinite Range" $ inRanges [InfiniteRange] 8287423
+       putStatus "NOT in Composite Range (expect false)" $ inRanges [LowerBoundRange 50, SpanRange 1 30] 44
+
+If you wish to see a better example in a real program then you should check out [splitter][1].
 
 ## Installation Instructions
 
-TODO Please explain how to install the library (It will be on hackage soon)
+You can install the range library in the standard way that you install any other Haskell
+library: using Cabal. I have uploaded this package to Hackage so you can get it by:
+
+    cabal install range
+
+If you wish to install it from source then check out this repository and do the following:
+
+    cd /path/to/haskell/range
+    cabal install
+
+You may also wish to work on this library in a development environment, in which case you
+should  run:
+
+    cd /path/to/haskell/range
+    cabal-dev install
+
+And that is all that there is to it. I hope you enjoy using this library and make great
+projects with it.
