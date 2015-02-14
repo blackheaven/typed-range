@@ -71,11 +71,10 @@ library
 Test-Suite test-range
    type:       exitcode-stdio-1.0
    main-is: Test/Range.hs
-   build-depends: 
-      base ==4.5.*
-      , Cabal >= 1.14
-      , QuickCheck >= 2.4.0.1 && < 2.6
-      , test-framework-quickcheck2 >= 0.2 && < 0.4
-      , test-framework >= 0.4 && < 0.9
-      , random >= 1.0
+   build-depends: base                          >= 4.5 && < 5
+                  , Cabal                       >= 1.14
+                  , QuickCheck                  >= 2.4.0.1 && < 2.6
+                  , test-framework-quickcheck2  >= 0.2 && < 0.4
+                  , test-framework              >= 0.4 && < 0.9
+                  , random                      >= 1.0
    ghc-options: -rtsopts -Wall
