@@ -22,6 +22,8 @@ description:         range is built to allow you to use ranges in your code quic
                      trivial for you to do so. It also attempts to do so in the most
                      efficient way possible.
 
+homepage:            https://bitbucket.org/robertmassaioli/range
+
 -- The license under which the package is released.
 license:             MIT
 

@@ -104,6 +104,15 @@ prop_elements_before_intersection_and_true (points, a, b) = actual == expected
       actual = map (inRanges intersectedRanges) points
       expected = zipWith (&&) before_a before_b
 
+prop_elements_before_difference_and_not_true :: ([Integer], [Range Integer], [Range Integer]) -> Bool
+prop_elements_before_difference_and_not_true (points, a, b) = actual == expected
+   where
+      before_a = map (inRanges a) points
+      before_b = map (inRanges b) points
+      diffedRanges = a `difference` b
+      actual = map (inRanges diffedRanges) points
+      expected = zipWith (&&) before_a $ map not before_b
+
 test_union = testGroup "union function properties"
    [ testProperty "Unions from before OR together and continue to work" prop_elements_before_union_or_true
    ]
@@ -112,12 +121,17 @@ test_intersection = testGroup "intersection function properties"
    [ testProperty "Intersection before AND's to after" prop_elements_before_intersection_and_true
    ]
 
+test_difference = testGroup "difference function properties"
+   [ testProperty "Difference before AND/NOT's to after" prop_elements_before_difference_and_not_true
+   ]
+
 --tests :: [Test]
 tests = 
    [ tests_inRange 
    , test_ranges_invert
    , test_union
    , test_intersection
+   , test_difference
    ]
    ++ rangeMergeTestCases
 

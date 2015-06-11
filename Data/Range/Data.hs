@@ -16,6 +16,7 @@ data Range a
 data RangeOperation 
    = RangeUnion         -- ^ Represents the set union operation.
    | RangeIntersection  -- ^ Represents the set intersection operation.
+   | RangeDifference    -- ^ Represents the set difference operation.
 
 -- | A Range Tree is a construct that can be built and then efficiently evaluated so that
 -- you can compress an entire tree of operations on ranges into a single range quickly.
