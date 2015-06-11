@@ -39,6 +39,7 @@ storeRanges start ranges = foldr unionRangeMerges start (map storeRange ranges)
 
 loadRanges :: (Ord a, Enum a) => [Range a] -> RangeMerge a
 loadRanges = storeRanges emptyRangeMerge
+{-# INLINE[0] loadRanges #-}
 
 exportRangeMerge :: (Ord a, Enum a) => RangeMerge a -> [Range a]
 exportRangeMerge IRM = [InfiniteRange]
@@ -55,6 +56,8 @@ exportRangeMerge rm = putAll rm
       simplifySpan (x, y) = if x == y
          then SingletonRange x
          else SpanRange x y
+
+{-# RULES "load/export" [1] forall x. loadRanges (exportRangeMerge x) = x #-}
 
 intersectSpansRM :: (Ord a) => RangeMerge a -> RangeMerge a -> RangeMerge a
 intersectSpansRM one two = RM Nothing Nothing newSpans
