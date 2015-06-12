@@ -17,7 +17,7 @@ import Test.RangeMerge
 data UnequalPair a = UnequalPair (a, a)
    deriving (Show)
 
-instance (Num a, Eq a) => Arbitrary (UnequalPair a) where
+instance (Integral a, Num a, Eq a) => Arbitrary (UnequalPair a) where
    arbitrary = do
       first <- arbitrarySizedIntegral
       second <- arbitrarySizedIntegral `suchThat` (/= first)
@@ -32,7 +32,7 @@ prop_singleton_not_in_range (UnequalPair (first, second)) = not $ inRange (Singl
 data SpanContains a = SpanContains (a, a) a
    deriving (Show)
 
-instance (Num a, Ord a, Random a) => Arbitrary (SpanContains a) where
+instance (Num a, Integral a, Ord a, Random a) => Arbitrary (SpanContains a) where
    arbitrary = do
       begin <- arbitrarySizedIntegral 
       end <- arbitrarySizedIntegral `suchThat` (>= begin)
@@ -52,7 +52,7 @@ tests_inRange = testGroup "inRange Function"
    , testProperty "infinite ranges contain everything" prop_infinite_range_contains_everything
    ]
 
-instance (Num a, Ord a, Enum a) => Arbitrary (Range a) where
+instance (Num a, Integral a, Ord a, Enum a) => Arbitrary (Range a) where
    arbitrary = oneof 
       [ generateSingleton
       , generateSpan

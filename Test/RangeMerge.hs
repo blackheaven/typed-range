@@ -15,7 +15,7 @@ import System.Random
 
 import Data.Range.RangeInternal
 
-instance (Num a, Ord a, Random a) => Arbitrary (RangeMerge a) where
+instance (Num a, Integral a, Ord a, Random a) => Arbitrary (RangeMerge a) where
    arbitrary = do
       upperBound <- maybeNumber
       possibleSpanStart <- arbitrarySizedIntegral
