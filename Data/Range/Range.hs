@@ -9,6 +9,7 @@ module Data.Range.Range (
       invert,
       union,
       intersection,
+      difference,
       fromRanges
    ) where
 
@@ -25,6 +26,13 @@ union a b = exportRangeMerge $ unionRangeMerges (loadRanges a) (loadRanges b)
 -- ranges.
 intersection :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]
 intersection a b = exportRangeMerge $ intersectionRangeMerges (loadRanges a) (loadRanges b)
+
+-- | Performs a set difference between the two input ranges and returns the resultant set of
+-- ranges.
+difference :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]
+difference a b = exportRangeMerge $ intersectionRangeMerges a' (invertRM b')
+  where a' = loadRanges a
+        b' = loadRanges b
 
 -- | An inversion function, given a set of ranges it returns the inverse set of ranges.
 invert :: (Ord a, Enum a) => [Range a] -> [Range a]
