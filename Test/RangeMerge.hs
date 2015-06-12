@@ -53,6 +53,13 @@ instance (Num a, Ord a, Random a) => Arbitrary (RangeMerge a) where
                   remainder <- helper (x - 1) second
                   return $ (first, second) : remainder
 
+prop_export_load_is_identity :: RangeMerge Integer -> Bool
+prop_export_load_is_identity x = loadRanges (exportRangeMerge x) == x
+
+test_loadRM = testGroup "loadRanges function"
+   [ testProperty "loading export results in identity" prop_export_load_is_identity
+   ]
+
 prop_invert_twice_is_identity :: RangeMerge Integer -> Bool
 prop_invert_twice_is_identity x = (invertRM . invertRM $ x) == x
 
@@ -98,7 +105,8 @@ test_complex_laws = testGroup "complex set theory rules"
    ]
 
 rangeMergeTestCases =
-   [ test_invertRM
+   [ test_loadRM
+   , test_invertRM
    , test_unionRM
    , test_intersectionRM
    , test_complex_laws

@@ -21,11 +21,13 @@ import Data.Range.Util
 -- ranges.
 union :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]
 union a b = exportRangeMerge $ unionRangeMerges (loadRanges a) (loadRanges b)
+{-# INLINE union #-}
 
 -- | Performs a set intersection between the two input ranges and returns the resultant set of
 -- ranges.
 intersection :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]
 intersection a b = exportRangeMerge $ intersectionRangeMerges (loadRanges a) (loadRanges b)
+{-# INLINE intersection #-}
 
 -- | Performs a set difference between the two input ranges and returns the resultant set of
 -- ranges.
@@ -37,6 +39,7 @@ difference a b = exportRangeMerge $ intersectionRangeMerges a' (invertRM b')
 -- | An inversion function, given a set of ranges it returns the inverse set of ranges.
 invert :: (Ord a, Enum a) => [Range a] -> [Range a]
 invert = exportRangeMerge . invertRM . loadRanges
+{-# INLINE invert #-}
 
 -- | A check to see if two ranges overlap. If they do then true is returned; false
 -- otherwise.
@@ -77,6 +80,7 @@ inRanges ranges value = any (flip inRange value) ranges
 -- this is redundant: mergeRanges . intersection
 mergeRanges :: (Ord a, Enum a) => [Range a] -> [Range a]
 mergeRanges = exportRangeMerge . loadRanges
+{-# INLINE mergeRanges #-}
 
 -- | A set of ranges represents a collection of real values without actually instantiating
 -- those values. This allows you to have infinite ranges. However, sometimes you wish to
