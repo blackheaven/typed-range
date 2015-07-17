@@ -1,3 +1,5 @@
+{-# LANGUAGE Safe #-}
+
 -- | Nested Ranges are common in practical usage. They appear in such forms as library
 -- version numbers ("Version 1.4.5.6" for example). And it is very useful to be able to
 -- compare these ranges to one another. This module exists for the purpose of allowing

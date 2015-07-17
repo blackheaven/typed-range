@@ -1,3 +1,5 @@
+{-# LANGUAGE Safe #-}
+
 module Data.Range.RangeInternal where
 
 import Data.Maybe (catMaybes)

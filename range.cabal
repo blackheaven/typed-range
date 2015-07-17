@@ -4,7 +4,7 @@
 -- The name of the package.
 name:                range
 
--- The package version.  See the Haskell package versioning policy (PVP) 
+-- The package version.  See the Haskell package versioning policy (PVP)
 -- for standards guiding when and how versions should be incremented.
 -- http://www.haskell.org/haskellwiki/Package_versioning_policy
 -- PVP summary:      +-+------- breaking API changes
@@ -33,12 +33,12 @@ license-file:        LICENSE
 -- The package author(s).
 author:              Robert Massaioli
 
--- An email address to which users can send suggestions, bug reports, and 
+-- An email address to which users can send suggestions, bug reports, and
 -- patches.
 maintainer:          robertmassaioli@gmail.com
 
 -- A copyright notice.
--- copyright:           
+-- copyright:
 
 category:            Data
 
@@ -54,22 +54,25 @@ library
                       , Data.Range.NestedRange
                       , Data.Range.RangeTree
                       , Data.Range.Parser
-  
+                      , Data.Range.Algebra
+
   -- Modules included in this library but not exported.
   other-modules:  Data.Range.Data
                   , Data.Range.RangeInternal
-                  , Data.Range.RangeTreeInternal
                   , Data.Range.Spans
                   , Data.Range.Util
+                  , Data.Range.Algebra.Internal
+                  , Data.Range.Algebra.Range
+                  , Data.Range.Algebra.Predicate
 
-  
+
   -- Other library packages from which modules are imported.
   build-depends:  base >= 4.5 && < 5
                   , parsec >= 3
 
   ghc-options: -Wall
-   
-  
+
+
 Test-Suite test-range
    type:       exitcode-stdio-1.0
    main-is: Test/Range.hs

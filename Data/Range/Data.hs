@@ -1,3 +1,5 @@
+{-# LANGUAGE Safe #-}
+
 -- | The Data module for common data types within the code.
 module Data.Range.Data where
 
@@ -13,7 +15,7 @@ data Range a
    deriving(Eq, Show)
 
 -- | These are the operations that can join two disjunct lists of ranges together.
-data RangeOperation 
+data RangeOperation
    = RangeUnion         -- ^ Represents the set union operation.
    | RangeIntersection  -- ^ Represents the set intersection operation.
    | RangeDifference    -- ^ Represents the set difference operation.
@@ -22,7 +24,7 @@ data RangeOperation
 -- you can compress an entire tree of operations on ranges into a single range quickly.
 -- The only purpose of this tree is to allow efficient construction of range operations
 -- that can be evaluated as is required.
-data RangeTree a 
+data RangeTree a
    = RangeNode RangeOperation (RangeTree a) (RangeTree a) -- ^ Combine two range trees together with a single operation
    | RangeNodeInvert (RangeTree a) -- ^ Invert a range tree, this is a 'not' operation.
    | RangeLeaf [Range a] -- ^ A leaf with a set of ranges that are collected together.

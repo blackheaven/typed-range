@@ -1,3 +1,5 @@
+{-# LANGUAGE Safe #-}
+
 module Data.Range.Util where
 
 -- This module is supposed to contain all of the functions that are required by the rest
