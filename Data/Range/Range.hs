@@ -1,3 +1,5 @@
+{-# LANGUAGE Safe #-}
+
 -- | This entire library is concerned with ranges and this module implements the absolute
 -- basic range functions.
 module Data.Range.Range (
@@ -14,31 +16,30 @@ module Data.Range.Range (
    ) where
 
 import Data.Range.Data
-import Data.Range.RangeInternal
 import Data.Range.Util
+import qualified Data.Range.Algebra as Alg
 
 -- | Performs a set union between the two input ranges and returns the resultant set of
 -- ranges.
 union :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]
-union a b = exportRangeMerge $ unionRangeMerges (loadRanges a) (loadRanges b)
+union a b = Alg.eval $ Alg.union (Alg.const a) (Alg.const b)
 {-# INLINE union #-}
 
 -- | Performs a set intersection between the two input ranges and returns the resultant set of
 -- ranges.
 intersection :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]
-intersection a b = exportRangeMerge $ intersectionRangeMerges (loadRanges a) (loadRanges b)
+intersection a b = Alg.eval $ Alg.intersection (Alg.const a) (Alg.const b)
 {-# INLINE intersection #-}
 
 -- | Performs a set difference between the two input ranges and returns the resultant set of
 -- ranges.
 difference :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]
-difference a b = exportRangeMerge $ intersectionRangeMerges a' (invertRM b')
-  where a' = loadRanges a
-        b' = loadRanges b
+difference a b = Alg.eval $ Alg.difference (Alg.const a) (Alg.const b)
+{-# INLINE difference #-}
 
 -- | An inversion function, given a set of ranges it returns the inverse set of ranges.
 invert :: (Ord a, Enum a) => [Range a] -> [Range a]
-invert = exportRangeMerge . invertRM . loadRanges
+invert = Alg.eval . Alg.invert . Alg.const
 {-# INLINE invert #-}
 
 -- | A check to see if two ranges overlap. If they do then true is returned; false
@@ -69,7 +70,7 @@ inRange InfiniteRange _ = True
 -- | Given a list of ranges this function tells you if a value is in any of those ranges.
 -- This is especially useful for more complex ranges.
 inRanges :: (Ord a) => [Range a] -> a -> Bool
-inRanges ranges value = any (flip inRange value) ranges
+inRanges rs a = any (`inRange` a) rs
 
 -- | When you create a range there may be overlaps in your ranges. However, for the sake
 -- of efficiency you probably want the list of ranges with no overlaps. The mergeRanges
@@ -79,7 +80,7 @@ inRanges ranges value = any (flip inRange value) ranges
 -- intersection then this is automatically done for you. Which means that a function like
 -- this is redundant: mergeRanges . intersection
 mergeRanges :: (Ord a, Enum a) => [Range a] -> [Range a]
-mergeRanges = exportRangeMerge . loadRanges
+mergeRanges = Alg.eval . Alg.const
 {-# INLINE mergeRanges #-}
 
 -- | A set of ranges represents a collection of real values without actually instantiating
@@ -89,9 +90,9 @@ mergeRanges = exportRangeMerge . loadRanges
 -- like.
 fromRanges :: (Ord a, Enum a) => [Range a] -> [a]
 fromRanges = concatMap fromRange
-   where 
-      fromRange range = case range of 
-         SingletonRange x -> [x] 
+   where
+      fromRange range = case range of
+         SingletonRange x -> [x]
          SpanRange a b -> [a..b]
          LowerBoundRange x -> iterate succ x
          UpperBoundRange x -> iterate pred x

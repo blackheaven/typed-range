@@ -1,3 +1,5 @@
+{-# LANGUAGE Safe #-}
+
 -- This module contains every function that purely performs operations on spans.
 module Data.Range.Spans where
 
