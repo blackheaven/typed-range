@@ -16,26 +16,28 @@ import Data.Range.Algebra.Internal
 import Data.Range.Algebra.Range
 import Data.Range.Algebra.Predicate
 
+import Control.Monad.Free
+
 const :: a -> RangeExpr a
-const = RangeExpr . Fix . Const
+const = RangeExpr . Pure
 
 invert :: RangeExpr a -> RangeExpr a
-invert = RangeExpr . Fix . Invert . getFix
+invert = RangeExpr . Free . Invert . getFree
 
 union :: RangeExpr a -> RangeExpr a -> RangeExpr a
-union a b = RangeExpr . Fix $ Union (getFix a) (getFix b)
+union a b = RangeExpr . Free $ Union (getFree a) (getFree b)
 
 intersection :: RangeExpr a -> RangeExpr a -> RangeExpr a
-intersection a b = RangeExpr . Fix $ Intersection (getFix a) (getFix b)
+intersection a b = RangeExpr . Free $ Intersection (getFree a) (getFree b)
 
 difference :: RangeExpr a -> RangeExpr a -> RangeExpr a
-difference a b = RangeExpr . Fix $ Difference (getFix a) (getFix b)
+difference a b = RangeExpr . Free $ Difference (getFree a) (getFree b)
 
 class RangeAlgebra a where
   eval :: Algebra RangeExpr a
 
 instance (Ord a, Enum a) => RangeAlgebra [Range a] where
-  eval = cata rangeAlgebra . getFix
+  eval = iter rangeAlgebra . getFree
 
 instance RangeAlgebra (a -> Bool) where
-  eval = cata predicateAlgebra . getFix
+  eval = iter predicateAlgebra . getFree

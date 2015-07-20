@@ -18,7 +18,6 @@ module Data.Range.Range (
 import Data.Range.Data
 import Data.Range.Util
 import qualified Data.Range.Algebra as Alg
-import qualified Data.Range.Algebra.Predicate as Alg (inRange, inRanges)
 
 -- | Performs a set union between the two input ranges and returns the resultant set of
 -- ranges.
@@ -62,12 +61,16 @@ rangesOverlap a b = rangesOverlap b a
 -- | Given a range and a value it will tell you wether or not the value is in the range.
 -- Remember that all ranges are inclusive.
 inRange :: (Ord a) => Range a -> a -> Bool
-inRange = flip Alg.inRange
+inRange (SingletonRange a) value = value == a
+inRange (SpanRange x y) value = isBetween value (x, y)
+inRange (LowerBoundRange lower) value = lower <= value
+inRange (UpperBoundRange upper) value = value <= upper
+inRange InfiniteRange _ = True
 
 -- | Given a list of ranges this function tells you if a value is in any of those ranges.
 -- This is especially useful for more complex ranges.
 inRanges :: (Ord a) => [Range a] -> a -> Bool
-inRanges = Alg.inRanges
+inRanges rs a = any (`inRange` a) rs
 
 -- | When you create a range there may be overlaps in your ranges. However, for the sake
 -- of efficiency you probably want the list of ranges with no overlaps. The mergeRanges
