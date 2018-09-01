@@ -84,6 +84,9 @@ Test-Suite test-range
                   , test-framework-quickcheck2  >= 0.2 && < 0.4
                   , test-framework              >= 0.4 && < 0.9
                   , random                      >= 1.0
-                  , free                        >= 4.12
                   , range
+   if impl(ghc < 8)
+    build-depends: free >= 4.12 && < 5
+   else
+    build-depends: free >= 4.12
    ghc-options: -rtsopts -Wall -fno-enable-rewrite-rules
