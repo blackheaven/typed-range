@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE Safe #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -10,16 +11,43 @@ import Data.Range.Data
 import Data.Range.RangeInternal
 
 import Control.Monad.Free
+#if MIN_VERSION_base(4,9,0)
+import Data.Functor.Classes
+#endif
 
 data RangeExprF r
   = Invert r
   | Union r r
   | Intersection r r
   | Difference r r
-  deriving (Show, Eq, Ord, Functor)
+  deriving (Show, Eq, Functor)
+
+#if MIN_VERSION_base(4,9,0)
+instance Eq1 RangeExprF where
+  liftEq eq (Invert a) (Invert b) = eq a b
+  liftEq eq (Union a c) (Union b d) = eq a b && eq c d
+  liftEq eq (Intersection a c) (Intersection b d) = eq a b && eq c d
+  liftEq eq (Difference a c) (Difference b d) = eq a b && eq c d
+  liftEq _ _ _ = False
+
+instance Show1 RangeExprF where
+  liftShowsPrec showPrec showList p (Invert x) = showString "not " . showParen True (showPrec (p + 1) x)
+  liftShowsPrec showPrec showList p (Union a b) =
+    showPrec (p + 1) a .
+    showString " \\/ " .
+    showPrec (p + 1) b
+  liftShowsPrec showPrec showList p (Intersection a b) =
+    showPrec (p + 1) a .
+    showString " /\\ " .
+    showPrec (p + 1) b
+  liftShowsPrec showPrec showList p (Difference a b) =
+    showPrec (p + 1) a .
+    showString " - " .
+    showPrec (p + 1) b
+#endif
 
 newtype RangeExpr a = RangeExpr { getFree :: Free RangeExprF a }
-  deriving (Show, Eq, Ord, Functor)
+  deriving (Show, Eq, Functor)
 
 type Algebra f a = f a -> a
 
