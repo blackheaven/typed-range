@@ -5,7 +5,7 @@
 image: haskell:latest
 pipelines:
   default:
-    - parallel
+    - parallel:
       - step:
           name: "Haskell Latest"
           script: &commonScript
@@ -23,7 +23,7 @@ pipelines:
           name: "Haskell 8.0"
           image: haskell:8.0
           script: *commonScript
-      - step: "Haskell 7.10"
+      - step:
           name: "Haskell 7.10"
           image: haskell:7.10
           script: *commonScript
