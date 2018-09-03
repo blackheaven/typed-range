@@ -5,11 +5,25 @@
 image: haskell:latest
 pipelines:
   default:
-    - step:
-        script:
-          - cabal sandbox init
-          - cabal update
-          - cabal install --enable-tests --only-dependencies
-          - cabal configure --enable-tests
-          - cabal build
-          - cabal test
+    - parallel:
+      - step:
+          name: "Haskell Latest"
+          script: &commonScript
+            - cabal sandbox init
+            - cabal update
+            - cabal install --enable-tests --only-dependencies
+            - cabal configure --enable-tests
+            - cabal build
+            - cabal test
+      - step:
+          name: "Haskell 8.2"
+          image: haskell:8.2
+          script: *commonScript
+      - step:
+          name: "Haskell 8.0"
+          image: haskell:8.0
+          script: *commonScript
+      - step:
+          name: "Haskell 7.10"
+          image: haskell:7.10
+          script: *commonScript
