@@ -13,14 +13,15 @@ name:                range
 version:             0.2.0.0
 
 -- A short (one-line) description of the package.
-synopsis:            This has a bunch of code for specifying and managing ranges in your code.
+synopsis:            An efficient and versatile range library.
 
 -- A longer description of the package.
-description:         range is built to allow you to use ranges in your code quickly and
-                     efficiently. There are many occasions where you will want to check if
-                     certain values are within a range and this library will make it
-                     trivial for you to do so. It also attempts to do so in the most
-                     efficient way possible.
+description:         The range library alows the use of performant and versatile ranges in your code.
+                     It supports bounded and unbounded ranges, ranges in a nested manner (like library
+                     versions), an efficient algebra of range computation and even a simplified interface
+                     for ranges for the common cases. This library is far more efficient than using the
+                     default Data.List functions to approximate range behaviour. Performance is the major
+                     value offering of this library.
 
 homepage:            https://bitbucket.org/robertmassaioli/range
 
