@@ -9,6 +9,27 @@
 -- evaluate them all at once. This is not only useful for efficiency but for
 -- parsing too. Build up @RangeExpr@'s whenever you wish to perform multiple
 -- operations in a row, and evaluate it in one step to be as efficient as possible.
+--
+-- __Note:__ This module is based on F-Algebras to do much of the heavy conceptual
+-- lifting. If you have never seen F-Algebras before then I highly recommend reading
+-- through <https://www.schoolofhaskell.com/user/bartosz/understanding-algebras this introductory content>
+-- from the School of Haskell.
+--
+-- == Examples
+--
+-- A simple example of using this module would look like this:
+--
+-- @
+-- ghci> import qualified Data.Range.Algebra as A
+-- ghci> (A.eval . A.invert $ A.const [SingletonRange 5]) :: [Range Integer]
+-- [LowerBoundRange 6,UpperBoundRange 4]
+-- (0.01 secs, 597,656 bytes)
+-- ghci>
+-- @
+--
+-- You can also use this module to evaluate range predicates.
+--
+--
 module Data.Range.Algebra
   ( RangeExpr
     -- ** Operations
@@ -50,6 +71,7 @@ difference a b = RangeExpr . Free $ Difference (getFree a) (getFree b)
 -- of a range, so that a range expression of the same type can be evaluated, yielding
 -- that representation.
 class RangeAlgebra a where
+  -- | This function is used to convert your built expressions into ranges.
   eval :: Algebra RangeExpr a
 
 -- | Multiple ranges represented by a list of disjoint ranges.
