@@ -58,3 +58,5 @@ cabal-dev install
 
 And that is all that there is to it. I hope you enjoy using this library and make great
 projects with it.
+
+ [1]: http://hackage.haskell.org/package/splitter
