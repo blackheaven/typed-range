@@ -165,14 +165,15 @@ mergeRanges = Alg.eval . Alg.union (Alg.const []) . Alg.const
 -- __Warning__: This method is meant as a convenience method, it is not efficient.
 --
 -- A set of ranges represents a collection of real values without actually instantiating
--- those values. This allows the range library to support infinite ranges and be super performant.
+-- those values. Not instantiating ranges, allows the range library to support infinite
+-- ranges and be super performant.
 --
 -- However, sometimes you actually want to get the values that your range represents, or even
 -- get a sample set of the values. This function generates as many of the values that belong
 -- to your range as you like.
 --
 -- Because ranges can be infinite, it is highly recommended to combine this method with something like
--- "Data.List.take".
+-- "Data.List.take" to avoid an infinite recursion.
 --
 -- == Examples
 --
@@ -194,13 +195,13 @@ mergeRanges = Alg.eval . Alg.union (Alg.const []) . Alg.const
 -- ghci>
 -- @
 fromRanges :: (Ord a, Enum a) => [Range a] -> [a]
-fromRanges = concatMap fromRange
+fromRanges = takeEvenlyMulti . fmap fromRange . mergeRanges
    where
       fromRange range = case range of
          SingletonRange x -> [x]
          SpanRange a b -> [a..b]
          LowerBoundRange x -> iterate succ x
          UpperBoundRange x -> iterate pred x
-         InfiniteRange -> zero : takeEvenly (tail $ iterate succ zero) (tail $ iterate pred zero)
+         InfiniteRange -> zero : takeEvenlyMulti [tail $ iterate succ zero, tail $ iterate pred zero]
             where
                zero = toEnum 0

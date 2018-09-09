@@ -2,6 +2,8 @@
 
 module Data.Range.Util where
 
+import Data.Maybe (catMaybes)
+
 -- This module is supposed to contain all of the functions that are required by the rest
 -- of the code but could be easily pulled into separate and completely non-related
 -- codebases or libraries.
@@ -9,7 +11,7 @@ module Data.Range.Util where
 insertionSort :: (Ord a) => (a -> a -> Ordering) -> [a] -> [a] -> [a]
 insertionSort comp xs ys = go xs ys
    where
-      go (f : fs) (s : ss) = case comp f s of 
+      go (f : fs) (s : ss) = case comp f s of
          LT -> f : go fs (s : ss)
          EQ -> f : s : go fs ss
          GT -> s : go (f : fs) ss
@@ -23,7 +25,15 @@ takeEvenly :: [a] -> [a] -> [a]
 takeEvenly (a : as) (b : bs) = a : b : takeEvenly as bs
 takeEvenly xs [] = xs
 takeEvenly [] xs = xs
-   
+
+takeEvenlyMulti :: [[a]] -> [a]
+takeEvenlyMulti [] = []
+takeEvenlyMulti xss = (catMaybes $ map safeHead xss) ++ takeEvenlyMulti (filter (not . null) . map tail $ xss)
+
+safeHead :: [a] -> Maybe a
+safeHead [] = Nothing
+safeHead (x : _) = Just x
+
 pairs :: [a] -> [(a, a)]
 pairs [] = []
 pairs xs = zip xs (tail xs)

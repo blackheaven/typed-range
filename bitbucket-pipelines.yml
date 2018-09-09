@@ -9,6 +9,7 @@ pipelines:
       - step:
           name: "Haskell Latest"
           script: &commonScript
+            - ghc --version && cabal --version
             - cabal sandbox init
             - cabal update
             - cabal install --enable-tests --only-dependencies
