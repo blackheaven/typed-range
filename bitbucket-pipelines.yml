@@ -28,3 +28,7 @@ pipelines:
           name: "Haskell 7.10"
           image: haskell:7.10
           script: *commonScript
+      - step:
+          name: "Haskell 7.8"
+          image: haskell:7.8
+          script: *commonScript
