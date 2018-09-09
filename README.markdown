@@ -37,18 +37,24 @@ If you wish to see a better example in a real program then you should check out 
 You can install the range library in the standard way that you install any other Haskell
 library: using Cabal. I have uploaded this package to Hackage so you can get it by:
 
-    cabal install range
+``` shell
+cabal install range
+```
 
 If you wish to install it from source then check out this repository and do the following:
 
-    cd /path/to/haskell/range
-    cabal install
+``` shell
+cd /path/to/haskell/range
+cabal install
+```
 
 You may also wish to work on this library in a development environment, in which case you
 should  run:
 
-    cd /path/to/haskell/range
-    cabal-dev install
+``` shell
+cd /path/to/haskell/range
+cabal-dev install
+```
 
 And that is all that there is to it. I hope you enjoy using this library and make great
 projects with it.
