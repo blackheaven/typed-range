@@ -9,10 +9,11 @@ pipelines:
       - step:
           name: "Haskell Latest"
           script: &commonScript
+            - ghc --version && cabal --version
             - cabal sandbox init
             - cabal update
             - cabal install --enable-tests --only-dependencies
-            - cabal configure --enable-tests
+            - cabal configure --enable-tests -v2
             - cabal build
             - cabal test
       - step:
@@ -26,4 +27,8 @@ pipelines:
       - step:
           name: "Haskell 7.10"
           image: haskell:7.10
+          script: *commonScript
+      - step:
+          name: "Haskell 7.8"
+          image: haskell:7.8
           script: *commonScript

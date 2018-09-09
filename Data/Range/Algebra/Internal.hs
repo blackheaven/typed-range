@@ -49,6 +49,9 @@ instance Show1 RangeExprF where
 newtype RangeExpr a = RangeExpr { getFree :: Free RangeExprF a }
   deriving (Show, Eq, Functor)
 
+-- | This is an F-Algebra. You don't need to know what this is in order to be able
+-- to use this module, but, if you are interested you can
+-- <https://www.schoolofhaskell.com/user/bartosz/understanding-algebras read more on School of Haskell>.
 type Algebra f a = f a -> a
 
 rangeMergeAlgebra :: (Ord a, Enum a) => Algebra RangeExprF (RangeMerge a)
