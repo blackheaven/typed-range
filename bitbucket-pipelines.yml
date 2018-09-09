@@ -13,7 +13,7 @@ pipelines:
             - cabal sandbox init
             - cabal update
             - cabal install --enable-tests --only-dependencies
-            - cabal configure --enable-tests
+            - cabal configure --enable-tests -v2
             - cabal build
             - cabal test
       - step:
