@@ -21,14 +21,9 @@ insertionSort comp xs ys = go xs ys
 isBetween :: (Ord a) => a -> (a, a) -> Bool
 isBetween a (x, y) = (x <= a) && (a <= y)
 
-takeEvenly :: [a] -> [a] -> [a]
-takeEvenly (a : as) (b : bs) = a : b : takeEvenly as bs
-takeEvenly xs [] = xs
-takeEvenly [] xs = xs
-
-takeEvenlyMulti :: [[a]] -> [a]
-takeEvenlyMulti [] = []
-takeEvenlyMulti xss = (catMaybes $ map safeHead xss) ++ takeEvenlyMulti (filter (not . null) . map tail $ xss)
+takeEvenly :: [[a]] -> [a]
+takeEvenly [] = []
+takeEvenly xss = (catMaybes . map safeHead $ xss) ++ takeEvenly (filter (not . null) . map tail $ xss)
 
 safeHead :: [a] -> Maybe a
 safeHead [] = Nothing

@@ -195,13 +195,13 @@ mergeRanges = Alg.eval . Alg.union (Alg.const []) . Alg.const
 -- ghci>
 -- @
 fromRanges :: (Ord a, Enum a) => [Range a] -> [a]
-fromRanges = takeEvenlyMulti . fmap fromRange . mergeRanges
+fromRanges = takeEvenly . fmap fromRange . mergeRanges
    where
       fromRange range = case range of
          SingletonRange x -> [x]
          SpanRange a b -> [a..b]
          LowerBoundRange x -> iterate succ x
          UpperBoundRange x -> iterate pred x
-         InfiniteRange -> zero : takeEvenlyMulti [tail $ iterate succ zero, tail $ iterate pred zero]
+         InfiniteRange -> zero : takeEvenly [tail $ iterate succ zero, tail $ iterate pred zero]
             where
                zero = toEnum 0
