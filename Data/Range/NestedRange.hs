@@ -12,7 +12,7 @@ module Data.Range.NestedRange
   , inNestedRange
   ) where
 
-import Data.Range.Range
+import Data.Range
 import Data.Version
 
 -- | The Nested Range is a structure that in a nested form of many ranges where there can

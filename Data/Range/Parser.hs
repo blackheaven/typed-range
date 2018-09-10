@@ -30,7 +30,7 @@ module Data.Range.Parser
 import Text.Parsec
 import Text.Parsec.String
 
-import Data.Range.Range
+import Data.Range
 
 -- | These are the arguments that will be used when parsing a string as a range.
 data RangeParserArgs = Args

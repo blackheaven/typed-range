@@ -5,7 +5,7 @@
 -- to check if a value is within a range.
 --
 -- __Note:__ It is intended that you will read the documentation in this module from top to bottom.
-module Data.Range.Range (
+module Data.Range (
       Range(..),
       inRange,
       inRanges,

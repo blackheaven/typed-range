@@ -10,7 +10,7 @@ name:                range
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             0.2.1.0
+version:             0.3.0.0
 
 -- A short (one-line) description of the package.
 synopsis:            An efficient and versatile range library.
@@ -24,7 +24,7 @@ description:         The range library alows the use of performant and versatile
                      value offering of this library.
 
                      If this is your first time using this library it is highly recommended that you start
-                     with "Data.Range.Range"; it contains the basics of this library that meet most use
+                     with "Data.Range"; it contains the basics of this library that meet most use
                      cases.
 
 homepage:            https://bitbucket.org/robertmassaioli/range
@@ -55,9 +55,8 @@ cabal-version:       >=1.8
 
 library
   -- Modules exported by the library.
-  exposed-modules:    Data.Range.Range
+  exposed-modules:    Data.Range
                       , Data.Range.NestedRange
-                      , Data.Range.RangeTree
                       , Data.Range.Parser
                       , Data.Range.Algebra
 
