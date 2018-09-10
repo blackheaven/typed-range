@@ -6,15 +6,23 @@
 --
 -- __Note:__ It is intended that you will read the documentation in this module from top to bottom.
 module Data.Range (
+      -- * Data types
       Range(..),
+      -- * Comparison functions
       inRange,
       inRanges,
+      aboveRange,
+      aboveRanges,
+      belowRange,
+      belowRanges,
       rangesOverlap,
+      -- * Set operations
       mergeRanges,
       union,
       intersection,
       difference,
       invert,
+      -- * Utility methods
       fromRanges
    ) where
 
@@ -129,6 +137,74 @@ inRange InfiniteRange _ = True
 inRanges :: (Ord a) => [Range a] -> a -> Bool
 inRanges rs a = any (`inRange` a) rs
 
+-- | Checks if the value provided is above (or greater than) the biggest value in
+-- the given range.
+--
+-- The "LowerBoundRange" and the "InfiniteRange" will always
+-- cause this method to return False because you can't have a value
+-- higher than them since they are both infinite in the positive
+-- direction.
+--
+-- @
+-- ghci> aboveRange (SingletonRange 5) (6 :: Integer)
+-- True
+-- ghci> aboveRange (SpanRange 1 5) (6 :: Integer)
+-- True
+-- ghci> aboveRange (SpanRange 1 5) (0 :: Integer)
+-- False
+-- ghci> aboveRange (LowerBoundRange 0) (6 :: Integer)
+-- False
+-- ghci> aboveRange (UpperBoundRange 0) (6 :: Integer)
+-- True
+-- ghci> aboveRange (InfiniteRange) (6 :: Integer)
+-- False
+-- ghci>
+-- @
+aboveRange :: (Ord a) => Range a -> a -> Bool
+aboveRange (SingletonRange a)       value = value > a
+aboveRange (SpanRange x y)          value = value > y
+aboveRange (LowerBoundRange _)      _     = False
+aboveRange (UpperBoundRange upper)  value = value > upper
+aboveRange InfiniteRange            _     = False
+
+-- | Checks if the value provided is above all of the ranges provided.
+aboveRanges :: (Ord a) => [Range a] -> a -> Bool
+aboveRanges rs a = all (`aboveRange` a) rs
+
+-- | Checks if the value provided is below (or less than) the smallest value in
+-- the given range.
+--
+-- The "UpperBoundRange" and the "InfiniteRange" will always
+-- cause this method to return False because you can't have a value
+-- lower than them since they are both infinite in the negative
+-- direction.
+--
+-- @
+-- ghci> belowRange (SingletonRange 5) (4 :: Integer)
+-- True
+-- ghci> belowRange (SpanRange 1 5) (0 :: Integer)
+-- True
+-- ghci> belowRange (SpanRange 1 5) (6 :: Integer)
+-- False
+-- ghci> belowRange (LowerBoundRange 6) (0 :: Integer)
+-- True
+-- ghci> belowRange (UpperBoundRange 6) (0 :: Integer)
+-- False
+-- ghci> belowRange (InfiniteRange) (6 :: Integer)
+-- False
+-- ghci>
+-- @
+belowRange :: (Ord a) => Range a -> a -> Bool
+belowRange (SingletonRange a)       value = value < a
+belowRange (SpanRange x y)          value = value < x
+belowRange (LowerBoundRange lower)  value = value < lower
+belowRange (UpperBoundRange _)      _     = False
+belowRange InfiniteRange            _     = False
+
+-- | Checks if the value provided is below all of the ranges provided.
+belowRanges :: (Ord a) => [Range a] -> a -> Bool
+belowRanges rs a = all (`belowRange` a) rs
+
 -- | An array of ranges may have overlaps; this function will collapse that array into as few
 -- Ranges as possible. For example:
 --
@@ -154,7 +230,7 @@ inRanges rs a = any (`inRange` a) rs
 -- this is redundant:
 --
 -- @
--- mergeRanges . intersection []
+-- mergeRanges . union []
 -- @
 mergeRanges :: (Ord a, Enum a) => [Range a] -> [Range a]
 mergeRanges = Alg.eval . Alg.union (Alg.const []) . Alg.const
