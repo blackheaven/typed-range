@@ -3,11 +3,19 @@
 # You can specify a custom docker image from Dockerhub
 # for your build environment
 image: haskell:latest
+
+definitions:
+  caches:
+    cabal-new: ~/.cabal/store
+    cabal-old: ~/.cabal/store
+
 pipelines:
   default:
     - parallel:
       - step:
           name: "Haskell Latest"
+          caches:
+            - cabal-new
           script: &commonScript
             - ghc --version && cabal --version
             - cabal new-update
@@ -18,6 +26,8 @@ pipelines:
       - step:
           name: "Haskell 8.2"
           image: haskell:8.2
+          caches:
+            - cabal-old
           script: &v8OrLowerCommonScript
             - ghc --version && cabal --version
             - cabal sandbox init
@@ -29,12 +39,18 @@ pipelines:
       - step:
           name: "Haskell 8.0"
           image: haskell:8.0
+          caches:
+            - cabal-old
           script: *v8OrLowerCommonScript
       - step:
           name: "Haskell 7.10"
           image: haskell:7.10
+          caches:
+            - cabal-old
           script: *v8OrLowerCommonScript
       - step:
           name: "Haskell 7.8"
           image: haskell:7.8
+          caches:
+            - cabal-old
           script: *v8OrLowerCommonScript
