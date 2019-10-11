@@ -1,5 +1,6 @@
 # Development and Build 
 /dist
+/dist-newstyle
 /cabal-dev
 /.cabal-sandbox
 /cabal.sandbox.config

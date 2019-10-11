@@ -5,12 +5,9 @@
 -- This range parser was designed to be a useful tool for CLI programs. For example, by
 -- default, this example depicts how the parser works:
 --
--- @
--- ghci> parseRanges "-5,8-10,13-15,20-" :: Either ParseError [Range Integer]
+-- >>> parseRanges "-5,8-10,13-15,20-" :: Either ParseError [Range Integer]
 -- Right [UpperBoundRange 5,SpanRange 8 10,SpanRange 13 15,LowerBoundRange 20]
 -- (0.01 secs, 681,792 bytes)
--- ghci>
--- @
 --
 -- And the * character translates to an infinite range. This is very useful for accepting
 -- ranges as input in CLI programs, but not as useful for parsing .cabal or package.json files.

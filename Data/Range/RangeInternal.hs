@@ -113,7 +113,7 @@ intersectionRangeMerges one two = RM
          => (RangeMerge a -> Maybe a)
          -> (a -> a -> a)
          -> RangeMerge a -> RangeMerge a -> Maybe a
-      calculateNewBound ext comp one two = case (ext one, ext two) of
+      calculateNewBound ext comp one' two' = case (ext one', ext two') of
          (Just x, Just y) -> Just $ comp x y
          (_, Nothing) -> Nothing
          (Nothing, _) -> Nothing
@@ -165,7 +165,7 @@ unionRangeMerges one two = infiniteCheck filterTwo
          => (RangeMerge a -> Maybe a)
          -> (a -> a -> a)
          -> RangeMerge a -> RangeMerge a -> Maybe a
-      calculateNewBound ext comp one two = case (ext one, ext two) of
+      calculateNewBound ext comp one' two' = case (ext one', ext two') of
          (Just x, Just y) -> Just $ comp x y
          (z, Nothing) -> z
          (Nothing, z) -> z

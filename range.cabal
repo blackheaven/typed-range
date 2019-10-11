@@ -56,7 +56,6 @@ cabal-version:       >=1.8
 library
   -- Modules exported by the library.
   exposed-modules:    Data.Range
-                      , Data.Range.NestedRange
                       , Data.Range.Parser
                       , Data.Range.Algebra
 
