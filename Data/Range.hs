@@ -2,19 +2,73 @@
 
 -- | This module provides a simple api to access range functionality. It provides standard
 -- set operations on ranges, the ability to merge ranges together and, importantly, the ability
--- to check if a value is within a range.
+-- to check if a value is within a range. The primary benifit of the Range library is performance
+-- and versatility.
 --
 -- __Note:__ It is intended that you will read the documentation in this module from top to bottom.
-module Data.Range.Range (
+--
+-- = Use case 1: Basic Integer Range
+--
+-- The standard use case for this library is efficiently discovering if an integer is within a given range.
+--
+-- For example, if we had the range made up of the inclusive unions of [5, 10] and [20, 30] and [25, Infinity)
+-- then we could instantiate, and simplify, such a range like this:
+-- 
+-- >>> mergeRanges [SpanRange (5 :: Integer) 10, SpanRange 20 30, LowerBoundRange 25]
+-- [SpanRange 5 10,LowerBoundRange 20]
+--
+-- You can then test if elements are within this range:
+--
+-- >>> let ranges = mergeRanges [SpanRange (5 :: Integer) 10, SpanRange 20 30, LowerBoundRange 25]
+-- >>> inRanges ranges 7
+-- True
+-- >>> inRanges ranges 50
+-- True
+-- >>> inRanges ranges 15
+-- False
+--
+-- The other convenience methods in this library will help you perform more range operations. 
+--
+-- = Use case 2: Version ranges
+-- 
+-- All the Data.Range library really needs to work, in the Ord type. If you have a data type that can
+-- be ordered, than we can perform range calculations on it. The Data.Version type is an excellent example
+-- of this. For example, let's say that you want to say: "I accept a version range of 1.1.0 to version 1.2.1 or version 1.3 to 1.4"
+-- then you can write that as:
+-- 
+-- >>> :m + Data.Version
+-- >>> let ranges = [SpanRange (Version [1, 1, 0] []) (Version [1,2,1] []), SpanRange (Version [1,3] []) (Version [1,4] [])]
+-- >>> inRanges ranges (Version [1,0] [])
+-- False
+-- >>> inRanges ranges (Version [1,5] [])
+-- False
+-- >>> inRanges ranges (Version [1,1,5] [])
+-- True
+-- >>> inRanges ranges (Version [1,3,5] [])
+-- True
+--
+-- As you can see, it is almost identical to the previous example, yet you are now comparing if a version is within a version range!
+-- The only difference is that the mergeRanges method can not be used as Data.Version does not have an Enum instance.
+--
+-- With any luck, you can apply this library to your use case of choice. Good luck!
+module Data.Range (
+      -- * Data types
       Range(..),
+      -- * Comparison functions
       inRange,
       inRanges,
+      aboveRange,
+      aboveRanges,
+      belowRange,
+      belowRanges,
       rangesOverlap,
+      -- * Set operations
       mergeRanges,
       union,
       intersection,
       difference,
       invert,
+      -- * Utility methods
       fromRanges
    ) where
 
@@ -27,12 +81,9 @@ import qualified Data.Range.Algebra as Alg
 --
 -- For example:
 --
--- @
--- ghci> union [SpanRange 1 10] [SpanRange 5 (15 :: Integer)]
+-- >>> union [SpanRange 1 10] [SpanRange 5 (15 :: Integer)]
 -- [SpanRange 1 15]
 -- (0.00 secs, 587,152 bytes)
--- ghci>
--- @
 union :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]
 union a b = Alg.eval $ Alg.union (Alg.const a) (Alg.const b)
 {-# INLINE union #-}
@@ -42,12 +93,9 @@ union a b = Alg.eval $ Alg.union (Alg.const a) (Alg.const b)
 --
 -- For example:
 --
--- @
--- ghci> intersection [SpanRange 1 10] [SpanRange 5 (15 :: Integer)]
+-- >>> intersection [SpanRange 1 10] [SpanRange 5 (15 :: Integer)]
 -- [SpanRange 5 10]
 -- (0.00 secs, 584,616 bytes)
--- ghci>
--- @
 intersection :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]
 intersection a b = Alg.eval $ Alg.intersection (Alg.const a) (Alg.const b)
 {-# INLINE intersection #-}
@@ -57,12 +105,9 @@ intersection a b = Alg.eval $ Alg.intersection (Alg.const a) (Alg.const b)
 --
 -- For example:
 --
--- @
--- ghci> difference [SpanRange 1 10] [SpanRange 5 (15 :: Integer)]
+-- >>> difference [SpanRange 1 10] [SpanRange 5 (15 :: Integer)]
 -- [SpanRange 1 4]
 -- (0.00 secs, 590,424 bytes)
--- ghci>
--- @
 difference :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]
 difference a b = Alg.eval $ Alg.difference (Alg.const a) (Alg.const b)
 {-# INLINE difference #-}
@@ -71,12 +116,9 @@ difference a b = Alg.eval $ Alg.difference (Alg.const a) (Alg.const b)
 --
 -- For example:
 --
--- @
--- ghci> invert [SpanRange 1 10, SpanRange 15 (20 :: Integer)]
+-- >>> invert [SpanRange 1 10, SpanRange 15 (20 :: Integer)]
 -- [LowerBoundRange 21,UpperBoundRange 0,SpanRange 11 14]
 -- (0.00 secs, 623,456 bytes)
--- ghci>
--- @
 invert :: (Ord a, Enum a) => [Range a] -> [Range a]
 invert = Alg.eval . Alg.invert . Alg.const
 {-# INLINE invert #-}
@@ -104,16 +146,14 @@ rangesOverlap a b = rangesOverlap b a
 -- this quite clearly. For example, you can try and approximate basic range functionality
 -- with "Data.List.elem" so we can generate an apples to apples comparison in GHCi:
 --
--- @
--- ghci> :set +s
--- ghci> elem (10000000 :: Integer) [1..10000000]
+-- >>> :set +s
+-- >>> elem (10000000 :: Integer) [1..10000000]
 -- True
 -- (0.26 secs, 720,556,888 bytes)
--- ghci> inRange (SpanRange 1 10000000) (10000000 :: Integer)
+-- >>> inRange (SpanRange 1 10000000) (10000000 :: Integer)
 -- True
 -- (0.00 secs, 557,656 bytes)
--- ghci>
--- @
+-- >>>
 --
 -- As you can see, this function is significantly more performant, in both speed and memory,
 -- than using the elem function.
@@ -129,15 +169,74 @@ inRange InfiniteRange _ = True
 inRanges :: (Ord a) => [Range a] -> a -> Bool
 inRanges rs a = any (`inRange` a) rs
 
+-- | Checks if the value provided is above (or greater than) the biggest value in
+-- the given range.
+--
+-- The "LowerBoundRange" and the "InfiniteRange" will always
+-- cause this method to return False because you can't have a value
+-- higher than them since they are both infinite in the positive
+-- direction.
+--
+-- >>> aboveRange (SingletonRange 5) (6 :: Integer)
+-- True
+-- >>> aboveRange (SpanRange 1 5) (6 :: Integer)
+-- True
+-- >>> aboveRange (SpanRange 1 5) (0 :: Integer)
+-- False
+-- >>> aboveRange (LowerBoundRange 0) (6 :: Integer)
+-- False
+-- >>> aboveRange (UpperBoundRange 0) (6 :: Integer)
+-- True
+-- >>> aboveRange (InfiniteRange) (6 :: Integer)
+-- False
+aboveRange :: (Ord a) => Range a -> a -> Bool
+aboveRange (SingletonRange a)       value = value > a
+aboveRange (SpanRange _ y)          value = value > y
+aboveRange (LowerBoundRange _)      _     = False
+aboveRange (UpperBoundRange upper)  value = value > upper
+aboveRange InfiniteRange            _     = False
+
+-- | Checks if the value provided is above all of the ranges provided.
+aboveRanges :: (Ord a) => [Range a] -> a -> Bool
+aboveRanges rs a = all (`aboveRange` a) rs
+
+-- | Checks if the value provided is below (or less than) the smallest value in
+-- the given range.
+--
+-- The "UpperBoundRange" and the "InfiniteRange" will always
+-- cause this method to return False because you can't have a value
+-- lower than them since they are both infinite in the negative
+-- direction.
+--
+-- >>> belowRange (SingletonRange 5) (4 :: Integer)
+-- True
+-- >>> belowRange (SpanRange 1 5) (0 :: Integer)
+-- True
+-- >>> belowRange (SpanRange 1 5) (6 :: Integer)
+-- False
+-- >>> belowRange (LowerBoundRange 6) (0 :: Integer)
+-- True
+-- >>> belowRange (UpperBoundRange 6) (0 :: Integer)
+-- False
+-- >>> belowRange (InfiniteRange) (6 :: Integer)
+-- False
+belowRange :: (Ord a) => Range a -> a -> Bool
+belowRange (SingletonRange a)       value = value < a
+belowRange (SpanRange x _)          value = value < x
+belowRange (LowerBoundRange lower)  value = value < lower
+belowRange (UpperBoundRange _)      _     = False
+belowRange InfiniteRange            _     = False
+
+-- | Checks if the value provided is below all of the ranges provided.
+belowRanges :: (Ord a) => [Range a] -> a -> Bool
+belowRanges rs a = all (`belowRange` a) rs
+
 -- | An array of ranges may have overlaps; this function will collapse that array into as few
 -- Ranges as possible. For example:
 --
--- @
--- ghci> mergeRanges [LowerBoundRange 12, SpanRange 1 10, SpanRange 5 (15 :: Integer)]
+-- >>> mergeRanges [LowerBoundRange 12, SpanRange 1 10, SpanRange 5 (15 :: Integer)]
 -- [LowerBoundRange 1]
 -- (0.01 secs, 588,968 bytes)
--- ghci>
--- @
 --
 -- As you can see, the mergeRanges method collapsed multiple ranges into a single range that
 -- still covers the same surface area.
@@ -154,7 +253,7 @@ inRanges rs a = any (`inRange` a) rs
 -- this is redundant:
 --
 -- @
--- mergeRanges . intersection []
+-- mergeRanges . union []
 -- @
 mergeRanges :: (Ord a, Enum a) => [Range a] -> [Range a]
 mergeRanges = Alg.eval . Alg.union (Alg.const []) . Alg.const
@@ -179,21 +278,15 @@ mergeRanges = Alg.eval . Alg.union (Alg.const []) . Alg.const
 --
 -- A simple span:
 --
--- @
--- ghci> take 5 . fromRanges $ [SpanRange 1 10 :: Range Integer]
+-- >>> take 5 . fromRanges $ [SpanRange 1 10 :: Range Integer]
 -- [1,2,3,4,5]
 -- (0.01 secs, 566,016 bytes)
--- ghci>
--- @
 --
 -- An infinite range:
 --
--- @
--- ghci> take 5 . fromRanges $ [InfiniteRange :: Range Integer]
+-- >>> take 5 . fromRanges $ [InfiniteRange :: Range Integer]
 -- [0,1,-1,2,-2]
 -- (0.00 secs, 566,752 bytes)
--- ghci>
--- @
 fromRanges :: (Ord a, Enum a) => [Range a] -> [a]
 fromRanges = takeEvenly . fmap fromRange . mergeRanges
    where

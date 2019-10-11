@@ -19,13 +19,10 @@
 --
 -- A simple example of using this module would look like this:
 --
--- @
--- ghci> import qualified Data.Range.Algebra as A
--- ghci> (A.eval . A.invert $ A.const [SingletonRange 5]) :: [Range Integer]
+-- >>> import qualified Data.Range.Algebra as A
+-- >>> (A.eval . A.invert $ A.const [SingletonRange 5]) :: [Range Integer]
 -- [LowerBoundRange 6,UpperBoundRange 4]
 -- (0.01 secs, 597,656 bytes)
--- ghci>
--- @
 --
 -- You can also use this module to evaluate range predicates.
 --

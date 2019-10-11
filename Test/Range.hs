@@ -12,7 +12,7 @@ import Control.Applicative ((<$>), (<*>))
 import Control.Monad (liftM)
 import System.Random
 
-import Data.Range.Range
+import Data.Range
 import qualified Data.Range.Algebra as Alg
 
 import Test.RangeMerge

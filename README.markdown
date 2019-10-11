@@ -1,5 +1,8 @@
 # range - by Robert Massaioli
 
+![build-status](https://bitbucket-badges.atlassian.io/badge/robertmassaioli/range.svg)
+![haskell](https://img.shields.io/badge/haskell-safe-green.svg)
+
 The range library is written in Haskell and it's purpose is to make it easy to deal with
 ranges. For example you may have the following ranges:
 

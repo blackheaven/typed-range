@@ -7,7 +7,6 @@ module Data.Range.Algebra.Internal where
 
 import Prelude hiding (const)
 
-import Data.Range.Data
 import Data.Range.RangeInternal
 
 import Control.Monad.Free
@@ -31,16 +30,16 @@ instance Eq1 RangeExprF where
   liftEq _ _ _ = False
 
 instance Show1 RangeExprF where
-  liftShowsPrec showPrec showList p (Invert x) = showString "not " . showParen True (showPrec (p + 1) x)
-  liftShowsPrec showPrec showList p (Union a b) =
+  liftShowsPrec showPrec _ p (Invert x) = showString "not " . showParen True (showPrec (p + 1) x)
+  liftShowsPrec showPrec _ p (Union a b) =
     showPrec (p + 1) a .
     showString " \\/ " .
     showPrec (p + 1) b
-  liftShowsPrec showPrec showList p (Intersection a b) =
+  liftShowsPrec showPrec _ p (Intersection a b) =
     showPrec (p + 1) a .
     showString " /\\ " .
     showPrec (p + 1) b
-  liftShowsPrec showPrec showList p (Difference a b) =
+  liftShowsPrec showPrec _ p (Difference a b) =
     showPrec (p + 1) a .
     showString " - " .
     showPrec (p + 1) b
