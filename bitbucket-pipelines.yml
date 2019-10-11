@@ -7,10 +7,10 @@ image: haskell:latest
 definitions:
   caches:
     cabal-new: ~/.cabal/store
-    cabal-8.2: ~/.cabal/store
-    cabal-8.0: ~/.cabal/store
-    cabal-7.10: ~/.cabal/store
-    cabal-7.8: ~/.cabal/store
+    cabal-8-2: ~/.cabal/store
+    cabal-8-0: ~/.cabal/store
+    cabal-7-10: ~/.cabal/store
+    cabal-7-8: ~/.cabal/store
 
 pipelines:
   default:
@@ -29,7 +29,7 @@ pipelines:
           name: "Haskell 8.2"
           image: haskell:8.2
           caches:
-            - cabal-8.2
+            - cabal-8-2
           script: &v8OrLowerCommonScript
             - ghc --version && cabal --version
             - cabal sandbox init
@@ -42,17 +42,17 @@ pipelines:
           name: "Haskell 8.0"
           image: haskell:8.0
           caches:
-            - cabal-8.0
+            - cabal-8-0
           script: *v8OrLowerCommonScript
       - step:
           name: "Haskell 7.10"
           image: haskell:7.10
           caches:
-            - cabal-7.10
+            - cabal-7-10
           script: *v8OrLowerCommonScript
       - step:
           name: "Haskell 7.8"
           image: haskell:7.8
           caches:
-            - cabal-7.8
+            - cabal-7-8
           script: *v8OrLowerCommonScript
