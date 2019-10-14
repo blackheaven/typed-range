@@ -87,7 +87,7 @@ import qualified Data.Range.Algebra as Alg
 -- >>> union [SpanRange 1 10] [SpanRange 5 (15 :: Integer)]
 -- [SpanRange 1 15]
 -- (0.00 secs, 587,152 bytes)
-union :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]
+union :: (Ord a) => [Range a] -> [Range a] -> [Range a]
 union a b = Alg.eval $ Alg.union (Alg.const a) (Alg.const b)
 {-# INLINE union #-}
 
@@ -99,7 +99,7 @@ union a b = Alg.eval $ Alg.union (Alg.const a) (Alg.const b)
 -- >>> intersection [SpanRange 1 10] [SpanRange 5 (15 :: Integer)]
 -- [SpanRange 5 10]
 -- (0.00 secs, 584,616 bytes)
-intersection :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]
+intersection :: (Ord a) => [Range a] -> [Range a] -> [Range a]
 intersection a b = Alg.eval $ Alg.intersection (Alg.const a) (Alg.const b)
 {-# INLINE intersection #-}
 
@@ -111,7 +111,7 @@ intersection a b = Alg.eval $ Alg.intersection (Alg.const a) (Alg.const b)
 -- >>> difference [SpanRange 1 10] [SpanRange 5 (15 :: Integer)]
 -- [SpanRange 1 4]
 -- (0.00 secs, 590,424 bytes)
-difference :: (Ord a, Enum a) => [Range a] -> [Range a] -> [Range a]
+difference :: (Ord a) => [Range a] -> [Range a] -> [Range a]
 difference a b = Alg.eval $ Alg.difference (Alg.const a) (Alg.const b)
 {-# INLINE difference #-}
 
@@ -122,7 +122,7 @@ difference a b = Alg.eval $ Alg.difference (Alg.const a) (Alg.const b)
 -- >>> invert [SpanRange 1 10, SpanRange 15 (20 :: Integer)]
 -- [LowerBoundRange 21,UpperBoundRange 0,SpanRange 11 14]
 -- (0.00 secs, 623,456 bytes)
-invert :: (Ord a, Enum a) => [Range a] -> [Range a]
+invert :: (Ord a) => [Range a] -> [Range a]
 invert = Alg.eval . Alg.invert . Alg.const
 {-# INLINE invert #-}
 
