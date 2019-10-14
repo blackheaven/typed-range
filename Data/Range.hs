@@ -270,7 +270,7 @@ belowRanges rs a = all (`belowRange` a) rs
 -- @
 -- mergeRanges . union []
 -- @
-mergeRanges :: (Ord a, Enum a) => [Range a] -> [Range a]
+mergeRanges :: (Ord a) => [Range a] -> [Range a]
 mergeRanges = Alg.eval . Alg.union (Alg.const []) . Alg.const
 {-# INLINE mergeRanges #-}
 

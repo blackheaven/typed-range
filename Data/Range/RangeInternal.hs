@@ -35,14 +35,14 @@ storeRange (UpperBoundRange upper) = emptyRangeMerge { largestUpperBound = Just 
 storeRange (SpanRange x y) = emptyRangeMerge { spanRanges = [(min x y, max x y)] }
 storeRange (SingletonRange x) = emptyRangeMerge { spanRanges = [(Bound x Inclusive, Bound x Inclusive)] }
 
-storeRanges :: (Ord a, Enum a) => RangeMerge a -> [Range a] -> RangeMerge a
+storeRanges :: (Ord a) => RangeMerge a -> [Range a] -> RangeMerge a
 storeRanges start ranges = foldr unionRangeMerges start (map storeRange ranges)
 
-loadRanges :: (Ord a, Enum a) => [Range a] -> RangeMerge a
+loadRanges :: (Ord a) => [Range a] -> RangeMerge a
 loadRanges = storeRanges emptyRangeMerge
 {-# INLINE[0] loadRanges #-}
 
-exportRangeMerge :: (Ord a, Enum a) => RangeMerge a -> [Range a]
+exportRangeMerge :: (Ord a) => RangeMerge a -> [Range a]
 exportRangeMerge IRM = [InfiniteRange]
 exportRangeMerge (RM lb up spans) = putUpperBound up ++ putSpans spans ++ putLowerBound lb
    where
@@ -77,7 +77,7 @@ fixUpper upper (x, y) = if x <= upper
    then Just (x, min y upper)
    else Nothing
 
-intersectionRangeMerges :: (Ord a, Enum a) => RangeMerge a -> RangeMerge a -> RangeMerge a
+intersectionRangeMerges :: (Ord a) => RangeMerge a -> RangeMerge a -> RangeMerge a
 intersectionRangeMerges IRM two = two
 intersectionRangeMerges one IRM = one
 intersectionRangeMerges one two = RM

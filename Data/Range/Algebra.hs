@@ -74,7 +74,7 @@ class RangeAlgebra a where
 -- | Multiple ranges represented by a list of disjoint ranges.
 -- Note that input ranges are allowed to overlap, but the output
 -- ranges are guaranteed to be disjoint.
-instance (Ord a, Enum a) => RangeAlgebra [Range a] where
+instance (Ord a) => RangeAlgebra [Range a] where
   eval = iter rangeAlgebra . getFree
 
 -- | Multiple ranges represented by a predicate function, indicating membership
