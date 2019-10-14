@@ -7,6 +7,7 @@ import Data.List (sortBy, insertBy)
 import Data.Ord (comparing)
 
 import Data.Range.Util
+import Data.Range.Data
    
 -- Assume that both inputs are sorted spans
 insertionSortSpans :: (Ord a) => [(a, a)] -> [(a, a)] -> [(a, a)]
@@ -49,8 +50,8 @@ unionSpans (f@(a, b) : s@(x, y) : xs) = if isBetween x f
 unionSpans xs = xs
 
 -- Assume that you are given a sorted and joined list of spans
-invertSpans :: (Ord a, Enum a) => [(a, a)] -> [(a, a)]
-invertSpans ((_, x) : s@(y, _) : xs) = (succ x, pred y) : invertSpans (s : xs)
+invertSpans :: [(Bound a, Bound a)] -> [(Bound a, Bound a)]
+invertSpans ((_, x) : s@(y, _) : xs) = (invertBound x, invertBound y) : invertSpans (s : xs)
 invertSpans _ = []
 
 hasOverlaps :: (Ord a, Enum a) => [(a, a)] -> Bool

@@ -53,6 +53,8 @@
 -- With any luck, you can apply this library to your use case of choice. Good luck!
 module Data.Range (
       -- * Data types
+      Bound(..),
+      BoundType(..),
       Range(..),
       -- * Comparison functions
       inRange,
@@ -62,6 +64,7 @@ module Data.Range (
       belowRange,
       belowRanges,
       rangesOverlap,
+      rangesAdjoin,
       -- * Set operations
       mergeRanges,
       union,
@@ -123,21 +126,33 @@ invert :: (Ord a, Enum a) => [Range a] -> [Range a]
 invert = Alg.eval . Alg.invert . Alg.const
 {-# INLINE invert #-}
 
--- | A check to see if two ranges overlap. If they do then true is returned; false
--- otherwise.
+--boundPoint :: Ord a => Bound a -> Bound a -> BoundOrdering 
+--boundPoint (Inclusive x) (Inclusive y) = if x == y then Overlap else Separate
+--boundPoint (Exclusive x) (Inclusive y) = if x == y then Adjoin else Separate 
+--boundPoint (Inclusive x) (Exclusive y) = if x == y then Adjoin else Separate 
+--boundPoint _ _ = Separate
+
+-- | A check to see if two ranges overlap. The ranges overlap if at least one value exists within both ranges.
+--  If they do overlap then true is returned; false otherwise.
 rangesOverlap :: (Ord a) => Range a -> Range a -> Bool
-rangesOverlap (SingletonRange a) (SingletonRange b) = a == b
-rangesOverlap (SingletonRange a) (SpanRange x y) = isBetween a (x, y)
-rangesOverlap (SingletonRange a) (LowerBoundRange lower) = lower <= a
-rangesOverlap (SingletonRange a) (UpperBoundRange upper) = a <= upper
-rangesOverlap (SpanRange x y) (SpanRange a b) = isBetween x (a, b) || isBetween a (x, y)
-rangesOverlap (SpanRange _ y) (LowerBoundRange lower) = lower <= y
-rangesOverlap (SpanRange x _) (UpperBoundRange upper) = x <= upper
-rangesOverlap (LowerBoundRange _) (LowerBoundRange _) = True
-rangesOverlap (LowerBoundRange x) (UpperBoundRange y) = x <= y
-rangesOverlap (UpperBoundRange _) (UpperBoundRange _) = True
-rangesOverlap InfiniteRange _ = True
-rangesOverlap a b = rangesOverlap b a
+rangesOverlap a b = Overlap == (rangesOverlapType a b)
+
+rangesOverlapType :: (Ord a) => Range a -> Range a -> OverlapType
+rangesOverlapType (SingletonRange a) (SingletonRange b) = if a == b then Overlap else Separate
+rangesOverlapType (SingletonRange a) (SpanRange x y) = singletonInSpan a (x, y)
+rangesOverlapType (SingletonRange a) (LowerBoundRange lower) = againstLowerBound (Bound a Inclusive) lower
+rangesOverlapType (SingletonRange a) (UpperBoundRange upper) = againstUpperBound (Bound a Inclusive) upper
+rangesOverlapType (SpanRange x y) (SpanRange a b) = boundsOverlapType (x, y) (a, b)
+rangesOverlapType (SpanRange _ y) (LowerBoundRange lower) = againstLowerBound y lower
+rangesOverlapType (SpanRange x _) (UpperBoundRange upper) = againstUpperBound x upper
+rangesOverlapType (LowerBoundRange _) (LowerBoundRange _) = Overlap
+rangesOverlapType (LowerBoundRange lower) (UpperBoundRange upper) = againstUpperBound lower upper
+rangesOverlapType (UpperBoundRange _) (UpperBoundRange _) = Overlap
+rangesOverlapType InfiniteRange _ = Overlap
+rangesOverlapType a b = rangesOverlapType b a
+
+rangesAdjoin :: (Ord a) => Range a -> Range a -> Bool
+rangesAdjoin a b = Adjoin == (rangesOverlapType a b)
 
 -- | Given a range and a value it will tell you wether or not the value is in the range.
 -- Remember that all ranges are inclusive.
@@ -159,9 +174,9 @@ rangesOverlap a b = rangesOverlap b a
 -- than using the elem function.
 inRange :: (Ord a) => Range a -> a -> Bool
 inRange (SingletonRange a) value = value == a
-inRange (SpanRange x y) value = isBetween value (x, y)
-inRange (LowerBoundRange lower) value = lower <= value
-inRange (UpperBoundRange upper) value = value <= upper
+inRange (SpanRange x y) value = Overlap == boundIsBetween (Bound value Inclusive) (x, y)
+inRange (LowerBoundRange lower) value = Overlap == againstLowerBound (Bound value Inclusive) lower
+inRange (UpperBoundRange upper) value = Overlap == againstUpperBound (Bound value Inclusive) upper
 inRange InfiniteRange _ = True
 
 -- | Given a list of ranges this function tells you if a value is in any of those ranges.
@@ -191,9 +206,9 @@ inRanges rs a = any (`inRange` a) rs
 -- False
 aboveRange :: (Ord a) => Range a -> a -> Bool
 aboveRange (SingletonRange a)       value = value > a
-aboveRange (SpanRange _ y)          value = value > y
+aboveRange (SpanRange _ y)          value = Overlap == againstLowerBound (Bound value Inclusive) (invertBound y)
 aboveRange (LowerBoundRange _)      _     = False
-aboveRange (UpperBoundRange upper)  value = value > upper
+aboveRange (UpperBoundRange upper)  value = Overlap == againstLowerBound (Bound value Inclusive) (invertBound upper)
 aboveRange InfiniteRange            _     = False
 
 -- | Checks if the value provided is above all of the ranges provided.
@@ -222,8 +237,8 @@ aboveRanges rs a = all (`aboveRange` a) rs
 -- False
 belowRange :: (Ord a) => Range a -> a -> Bool
 belowRange (SingletonRange a)       value = value < a
-belowRange (SpanRange x _)          value = value < x
-belowRange (LowerBoundRange lower)  value = value < lower
+belowRange (SpanRange x _)          value = Overlap == againstUpperBound (Bound value Inclusive) (invertBound x)
+belowRange (LowerBoundRange lower)  value = Overlap == againstUpperBound (Bound value Inclusive) (invertBound lower)
 belowRange (UpperBoundRange _)      _     = False
 belowRange InfiniteRange            _     = False
 
@@ -292,9 +307,9 @@ fromRanges = takeEvenly . fmap fromRange . mergeRanges
    where
       fromRange range = case range of
          SingletonRange x -> [x]
-         SpanRange a b -> [a..b]
-         LowerBoundRange x -> iterate succ x
-         UpperBoundRange x -> iterate pred x
+         SpanRange (Bound a aType) (Bound b bType) -> [(if aType == Inclusive then a else succ a)..(if bType == Inclusive then b else pred b)]
+         LowerBoundRange (Bound x xType) -> iterate succ (if xType == Inclusive then x else succ x)
+         UpperBoundRange (Bound x xType) -> iterate pred (if xType == Inclusive then x else pred x)
          InfiniteRange -> zero : takeEvenly [tail $ iterate succ zero, tail $ iterate pred zero]
             where
                zero = toEnum 0

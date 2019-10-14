@@ -83,9 +83,9 @@ ranges args = range `sepBy` (string $ unionSeparator args)
          string_ $ rangeSeparator args
          second <- readSection
          case (first, second) of
-            (Just x, Just y)  -> return $ SpanRange x y
-            (Just x, _)       -> return $ LowerBoundRange x
-            (_, Just y)       -> return $ UpperBoundRange y
+            (Just x, Just y)  -> return $ SpanRange (Bound x Inclusive) (Bound y Inclusive)
+            (Just x, _)       -> return $ LowerBoundRange (Bound x Inclusive)
+            (_, Just y)       -> return $ UpperBoundRange (Bound y Inclusive)
             _                 -> parserFail ("Range should have a number on one end: " ++ rangeSeparator args)
 
       singletonRange :: (Read a) => Parser (Range a)
