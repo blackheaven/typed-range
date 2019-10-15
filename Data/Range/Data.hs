@@ -9,13 +9,16 @@ data OverlapType = Separate | Overlap | Adjoin
 data BoundType = Inclusive | Exclusive
    deriving (Eq, Show)
 
-data Bound a = Bound 
+data Bound a = Bound
    { boundValue :: a
    , boundType :: BoundType
    } deriving (Eq, Show)
 
-instance Ord a => Ord (Bound a) where 
+instance Ord a => Ord (Bound a) where
    compare (Bound x _) (Bound y _) = compare x y
+
+-- TODO can we implement Monoid for Range a with the addition of an empty?
+-- Or maybe we can implement Monoid for a list of ranges...
 
 -- | The Range Data structure; it is capable of representing any type of range. This is
 -- the primary data structure in this library. Everything should be possible to convert
@@ -26,4 +29,19 @@ data Range a
    | LowerBoundRange (Bound a)      -- ^ Represents a range with only an inclusive lower bound.
    | UpperBoundRange (Bound a)      -- ^ Represents a range with only an inclusive upper bound.
    | InfiniteRange                  -- ^ Represents an infinite range over all values.
-   deriving(Eq, Show)
+   deriving(Eq)
+
+instance Show a => Show (Range a) where
+   showsPrec i (SingletonRange a) = ((++) "SingletonRange ") . showsPrec i a
+   showsPrec i (SpanRange (Bound l lType) (Bound r rType)) =
+      showsPrec i l . showSymbol lType rType . showsPrec i r
+      where
+         showSymbol Inclusive Inclusive = (++) " +=+ "
+         showSymbol Inclusive Exclusive = (++) " +=* "
+         showSymbol Exclusive Inclusive = (++) " *=+ "
+         showSymbol Exclusive Exclusive = (++) " *=* "
+   showsPrec i (LowerBoundRange (Bound a Inclusive)) = ((++) "lbi ") . (showsPrec i a)
+   showsPrec i (LowerBoundRange (Bound a Exclusive)) = ((++) "lbe ") . (showsPrec i a)
+   showsPrec i (UpperBoundRange (Bound a Inclusive)) = ((++) "ubi ") . (showsPrec i a)
+   showsPrec i (UpperBoundRange (Bound a Exclusive)) = ((++) "ube ") . (showsPrec i a)
+   showsPrec i (InfiniteRange) = (++) "inf"

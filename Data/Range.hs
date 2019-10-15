@@ -7,19 +7,60 @@
 --
 -- __Note:__ It is intended that you will read the documentation in this module from top to bottom.
 --
+-- = Understanding custom range syntax
+--
+-- This library supports five different types of ranges:
+--
+--  * 'SpanRange': A range starting from a value and ending with another value
+--  * 'SingletonRange': This range is really just a shorthand for a range that starts and ends with the same value.
+--  * 'LowerBoundRange': A range that starts at a value and extends infinitely in the positive direction.
+--  * 'UpperBoundRange': A range that starts at a value and extends infinitely in the negative direction.
+--  * 'InfiniteRange': A range that includes all values in your range.
+--
+-- All of these ranges are bounded in an 'Inclusive' or 'Exclusive' manner.
+--
+-- To run through a simple example of what this looks like, let's start with mathematical notation and then
+-- move into our own notation.
+--
+-- The bound @[1, 5)@ says "All of the numbers from one to five, including one but excluding 5."
+--
+-- Using the data types directly, you could write this as:
+--
+-- @SpanRange (Bound 1 Inclusive) (Bound 5 Exclusive)@
+--
+-- This is overly verbose, as a result, this library contains operators and functions for writing this much
+-- more succinctly. The above example could be written as:
+--
+-- @1 +=* 5@
+--
+-- There the @+@ symbol is used to represent the inclusive side of a range and the @*@ symbol is used to represent
+-- the exclusive side of a range.
+--
+-- The 'Show' instance of the 'Range' class will actually output these simplified helper functions, for example:
+--
+-- >>> [SingletonRange 5, SpanRange (Bound 1 Inclusive) (Bound 5 Exclusive), InfiniteRange]
+-- [SingletonRange 5,1 +=* 5,inf]
+--
+-- There are 'lbi', 'lbe', 'ubi' and 'ube' functions to create lower bound inclusive, lower bound exclusive, upper
+-- bound inclusive and upper bound exclusive ranges respectively.
+--
+-- @SingletonRange x@ is equivalent to @x +=+ x@ but is nicer for presentational purposes in a 'Show'.
+--
+-- Now that you know the basic syntax to declare ranges, the following uses cases will be easier to understand.
+--
 -- = Use case 1: Basic Integer Range
 --
 -- The standard use case for this library is efficiently discovering if an integer is within a given range.
 --
--- For example, if we had the range made up of the inclusive unions of [5, 10] and [20, 30] and [25, Infinity)
+-- For example, if we had the range made up of the inclusive unions of @[5, 10]@ and @[20, 30]@ and @[25, Infinity)@
 -- then we could instantiate, and simplify, such a range like this:
--- 
--- >>> mergeRanges [SpanRange (5 :: Integer) 10, SpanRange 20 30, LowerBoundRange 25]
--- [SpanRange 5 10,LowerBoundRange 20]
+--
+-- >>> mergeRanges [(5 :: Integer) +=+ 10, 20 +=+ 30, lbi 25]
+-- [5 +=+ 10,lbi 20]
 --
 -- You can then test if elements are within this range:
 --
--- >>> let ranges = mergeRanges [SpanRange (5 :: Integer) 10, SpanRange 20 30, LowerBoundRange 25]
+-- >>> let ranges = mergeRanges [(5 :: Integer) +=+ 10, 20 +=+ 30, lbi 25]
 -- >>> inRanges ranges 7
 -- True
 -- >>> inRanges ranges 50
@@ -27,17 +68,17 @@
 -- >>> inRanges ranges 15
 -- False
 --
--- The other convenience methods in this library will help you perform more range operations. 
+-- The other convenience methods in this library will help you perform more range operations.
 --
 -- = Use case 2: Version ranges
--- 
+--
 -- All the Data.Range library really needs to work, in the Ord type. If you have a data type that can
 -- be ordered, than we can perform range calculations on it. The Data.Version type is an excellent example
--- of this. For example, let's say that you want to say: "I accept a version range of 1.1.0 to version 1.2.1 or version 1.3 to 1.4"
+-- of this. For example, let's say that you want to say: "I accept a version range of [1.1.0, 1.2.1] or [1.3, 1.4) or [1.4, 1.4.2)"
 -- then you can write that as:
--- 
+--
 -- >>> :m + Data.Version
--- >>> let ranges = [SpanRange (Version [1, 1, 0] []) (Version [1,2,1] []), SpanRange (Version [1,3] []) (Version [1,4] [])]
+-- >>> let ranges = mergeRanges [Version [1, 1, 0] [] +=+ Version [1,2,1] [], Version [1,3] [] +=* Version [1,4] [], Version [1,4] [] +=* Version [1,4,2] []]
 -- >>> inRanges ranges (Version [1,0] [])
 -- False
 -- >>> inRanges ranges (Version [1,5] [])
@@ -48,14 +89,20 @@
 -- True
 --
 -- As you can see, it is almost identical to the previous example, yet you are now comparing if a version is within a version range!
--- The only difference is that the mergeRanges method can not be used as Data.Version does not have an Enum instance.
+-- Not only that, but so long as your type is orderable, the ranges can be merged together cleanly.
 --
 -- With any luck, you can apply this library to your use case of choice. Good luck!
 module Data.Range (
-      -- * Data types
-      Bound(..),
-      BoundType(..),
-      Range(..),
+      -- * Range creation
+      (+=+),
+      (+=*),
+      (*=+),
+      (*=*),
+      lbi,
+      lbe,
+      ubi,
+      ube,
+      inf,
       -- * Comparison functions
       inRange,
       inRanges,
@@ -72,10 +119,15 @@ module Data.Range (
       difference,
       invert,
       -- * Utility methods
-      fromRanges
+      fromRanges,
+      -- * Data types
+      Bound(..),
+      BoundType(..),
+      Range(..)
    ) where
 
 import Data.Range.Data
+import Data.Range.Operators
 import Data.Range.Util
 import qualified Data.Range.Algebra as Alg
 
@@ -126,14 +178,21 @@ invert :: (Ord a) => [Range a] -> [Range a]
 invert = Alg.eval . Alg.invert . Alg.const
 {-# INLINE invert #-}
 
---boundPoint :: Ord a => Bound a -> Bound a -> BoundOrdering 
---boundPoint (Inclusive x) (Inclusive y) = if x == y then Overlap else Separate
---boundPoint (Exclusive x) (Inclusive y) = if x == y then Adjoin else Separate 
---boundPoint (Inclusive x) (Exclusive y) = if x == y then Adjoin else Separate 
---boundPoint _ _ = Separate
-
 -- | A check to see if two ranges overlap. The ranges overlap if at least one value exists within both ranges.
 --  If they do overlap then true is returned; false otherwise.
+--
+-- For example:
+--
+-- >>> rangesOverlap (1 +=+ 5) (3 +=+ 7)
+-- True
+-- >>> rangesOverlap (1 +=+ 5) (5 +=+ 7)
+-- True
+-- >>> rangesOverlap (1 +=* 5) (5 +=+ 7)
+-- False
+--
+-- The last case of these three is the primary "gotcha" of this method. With @[1, 5)@ and @[5, 7]@ there is no
+-- value that exists within both ranges. Therefore, technically, the ranges do not overlap. If you expected
+-- this to return True then it is likely that you would prefer to use 'rangesAdjoin' instead.
 rangesOverlap :: (Ord a) => Range a -> Range a -> Bool
 rangesOverlap a b = Overlap == (rangesOverlapType a b)
 
@@ -151,6 +210,21 @@ rangesOverlapType (UpperBoundRange _) (UpperBoundRange _) = Overlap
 rangesOverlapType InfiniteRange _ = Overlap
 rangesOverlapType a b = rangesOverlapType b a
 
+-- | A check to see if two ranges overlap or adjoin. The ranges adjoin if no values exist between them.
+--  If they do overlap or adjoin then true is returned; false otherwise.
+--
+-- For example:
+--
+-- >>> rangesAdjoin (1 +=+ 5) (3 +=+ 7)
+-- True
+-- >>> rangesAdjoin (1 +=+ 5) (5 +=+ 7)
+-- True
+-- >>> rangesAdjoin (1 +=* 5) (5 +=+ 7)
+-- True
+--
+-- The last case of these three is the primary "gotcha" of this method. With @[1, 5)@ and @[5, 7]@ there
+-- exist no values between them. Therefore the ranges adjoin. If you expected this to return False then
+-- it is likely that you would prefer to use 'rangesOverlap' instead.
 rangesAdjoin :: (Ord a) => Range a -> Range a -> Bool
 rangesAdjoin a b = Adjoin == (rangesOverlapType a b)
 
@@ -165,7 +239,7 @@ rangesAdjoin a b = Adjoin == (rangesOverlapType a b)
 -- >>> elem (10000000 :: Integer) [1..10000000]
 -- True
 -- (0.26 secs, 720,556,888 bytes)
--- >>> inRange (SpanRange 1 10000000) (10000000 :: Integer)
+-- >>> inRange (1 +=+ 10000000) (10000000 :: Integer)
 -- True
 -- (0.00 secs, 557,656 bytes)
 -- >>>
@@ -194,15 +268,15 @@ inRanges rs a = any (`inRange` a) rs
 --
 -- >>> aboveRange (SingletonRange 5) (6 :: Integer)
 -- True
--- >>> aboveRange (SpanRange 1 5) (6 :: Integer)
+-- >>> aboveRange (1 +=+ 5) (6 :: Integer)
 -- True
--- >>> aboveRange (SpanRange 1 5) (0 :: Integer)
+-- >>> aboveRange (1 +=+ 5) (0 :: Integer)
 -- False
--- >>> aboveRange (LowerBoundRange 0) (6 :: Integer)
+-- >>> aboveRange (lbi 0) (6 :: Integer)
 -- False
--- >>> aboveRange (UpperBoundRange 0) (6 :: Integer)
+-- >>> aboveRange (ubi 0) (6 :: Integer)
 -- True
--- >>> aboveRange (InfiniteRange) (6 :: Integer)
+-- >>> aboveRange inf (6 :: Integer)
 -- False
 aboveRange :: (Ord a) => Range a -> a -> Bool
 aboveRange (SingletonRange a)       value = value > a
@@ -225,15 +299,15 @@ aboveRanges rs a = all (`aboveRange` a) rs
 --
 -- >>> belowRange (SingletonRange 5) (4 :: Integer)
 -- True
--- >>> belowRange (SpanRange 1 5) (0 :: Integer)
+-- >>> belowRange (1 +=+ 5) (0 :: Integer)
 -- True
--- >>> belowRange (SpanRange 1 5) (6 :: Integer)
+-- >>> belowRange (1 +=+ 5) (6 :: Integer)
 -- False
--- >>> belowRange (LowerBoundRange 6) (0 :: Integer)
+-- >>> belowRange (lbi 6) (0 :: Integer)
 -- True
--- >>> belowRange (UpperBoundRange 6) (0 :: Integer)
+-- >>> belowRange (ubi 6) (0 :: Integer)
 -- False
--- >>> belowRange (InfiniteRange) (6 :: Integer)
+-- >>> belowRange inf (6 :: Integer)
 -- False
 belowRange :: (Ord a) => Range a -> a -> Bool
 belowRange (SingletonRange a)       value = value < a
@@ -249,8 +323,8 @@ belowRanges rs a = all (`belowRange` a) rs
 -- | An array of ranges may have overlaps; this function will collapse that array into as few
 -- Ranges as possible. For example:
 --
--- >>> mergeRanges [LowerBoundRange 12, SpanRange 1 10, SpanRange 5 (15 :: Integer)]
--- [LowerBoundRange 1]
+-- >>> mergeRanges [lbi 12, 1 +=+ 10, 5 +=+ (15 :: Integer)]
+-- [lbi 1]
 -- (0.01 secs, 588,968 bytes)
 --
 -- As you can see, the mergeRanges method collapsed multiple ranges into a single range that
@@ -289,17 +363,21 @@ mergeRanges = Alg.eval . Alg.union (Alg.const []) . Alg.const
 -- Because ranges can be infinite, it is highly recommended to combine this method with something like
 -- "Data.List.take" to avoid an infinite recursion.
 --
+-- This method will attempt to take a sample from all of the ranges that you have provided, however
+-- it is not guaranteed that you will get an even sampling. All that is guaranteed is that you will
+-- only get back values that are within one or more of the ranges you provide.
+--
 -- == Examples
 --
 -- A simple span:
 --
--- >>> take 5 . fromRanges $ [SpanRange 1 10 :: Range Integer]
--- [1,2,3,4,5]
+-- >>> take 5 . fromRanges $ [1 +=+ 10 :: Range Integer, 20 +=+ 30]
+-- [1,20,2,21,3]
 -- (0.01 secs, 566,016 bytes)
 --
 -- An infinite range:
 --
--- >>> take 5 . fromRanges $ [InfiniteRange :: Range Integer]
+-- >>> take 5 . fromRanges $ [inf :: Range Integer]
 -- [0,1,-1,2,-2]
 -- (0.00 secs, 566,752 bytes)
 fromRanges :: (Ord a, Enum a) => [Range a] -> [a]
