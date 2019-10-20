@@ -43,7 +43,7 @@ instance (Num a, Integral a, Ord a, Random a) => Arbitrary (SpanContains a) wher
       return $ SpanContains (begin, end) middle
 
 prop_span_contains :: SpanContains Integer -> Bool
-prop_span_contains (SpanContains (begin, end) middle) = inRange (SpanRange begin end) middle
+prop_span_contains (SpanContains (begin, end) middle) = inRange (SpanRange (Bound begin Inclusive) (Bound end Inclusive)) middle
 
 prop_infinite_range_contains_everything :: Integer -> Bool
 prop_infinite_range_contains_everything = inRange InfiniteRange
@@ -68,9 +68,9 @@ instance (Num a, Integral a, Ord a, Enum a) => Arbitrary (Range a) where
          generateSpan = do
             first <- arbitrarySizedIntegral
             second <- arbitrarySizedIntegral `suchThat` (> first)
-            return $ SpanRange first second
-         generateLowerBound = liftM LowerBoundRange arbitrarySizedIntegral
-         generateUpperBound = liftM UpperBoundRange arbitrarySizedIntegral
+            return $ first +=+ second
+         generateLowerBound = liftM lbi arbitrarySizedIntegral
+         generateUpperBound = liftM ubi arbitrarySizedIntegral
          generateInfiniteRange :: Gen (Range a)
          generateInfiniteRange = return InfiniteRange
 
