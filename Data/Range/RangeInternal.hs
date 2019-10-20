@@ -34,7 +34,9 @@ storeRange :: (Ord a) => Range a -> RangeMerge a
 storeRange InfiniteRange = IRM
 storeRange (LowerBoundRange lower) = emptyRangeMerge { largestLowerBound = Just lower }
 storeRange (UpperBoundRange upper) = emptyRangeMerge { largestUpperBound = Just upper }
-storeRange (SpanRange x y) = emptyRangeMerge { spanRanges = [(minBounds x y, maxBounds x y)] }
+storeRange (SpanRange x@(Bound xValue xType) y@(Bound yValue yType))
+   | xValue == yValue && pointJoinType xType yType == Separate = emptyRangeMerge
+   | otherwise = emptyRangeMerge { spanRanges = [(minBounds x y, maxBounds x y)] }
 storeRange (SingletonRange x) = emptyRangeMerge { spanRanges = [(Bound x Inclusive, Bound x Inclusive)] }
 
 storeRanges :: (Ord a) => RangeMerge a -> [Range a] -> RangeMerge a
@@ -54,7 +56,7 @@ exportRangeMerge (RM lb up spans) = putUpperBound up ++ putSpans spans ++ putLow
       putUpperBound = maybe [] (return . UpperBoundRange)
       putSpans = map simplifySpan
 
-      simplifySpan (x@(Bound xv _), y) = if x == y
+      simplifySpan (x@(Bound xv xType), y@(Bound _ yType)) = if (x == y) && (pointJoinType xType yType /= Separate)
          then SingletonRange xv
          else SpanRange x y
 
