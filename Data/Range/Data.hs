@@ -14,9 +14,6 @@ data Bound a = Bound
    , boundType :: BoundType
    } deriving (Eq, Show)
 
-instance Ord a => Ord (Bound a) where
-   compare (Bound x _) (Bound y _) = compare x y
-
 -- TODO can we implement Monoid for Range a with the addition of an empty?
 -- Or maybe we can implement Monoid for a list of ranges...
 

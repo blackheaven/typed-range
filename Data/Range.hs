@@ -118,8 +118,9 @@ module Data.Range (
       intersection,
       difference,
       invert,
-      -- * Utility methods
+      -- * Enumerable methods
       fromRanges,
+      joinRanges,
       -- * Data types
       Bound(..),
       BoundType(..),
@@ -129,6 +130,7 @@ module Data.Range (
 import Data.Range.Data
 import Data.Range.Operators
 import Data.Range.Util
+import Data.Range.RangeInternal (exportRangeMerge, joinRM, loadRanges)
 import qualified Data.Range.Algebra as Alg
 
 -- | Performs a set union between the two input ranges and returns the resultant set of
@@ -391,3 +393,6 @@ fromRanges = takeEvenly . fmap fromRange . mergeRanges
          InfiniteRange -> zero : takeEvenly [tail $ iterate succ zero, tail $ iterate pred zero]
             where
                zero = toEnum 0
+
+joinRanges :: (Ord a, Enum a) => [Range a] -> [Range a]
+joinRanges = exportRangeMerge . joinRM . loadRanges
