@@ -15,7 +15,7 @@ insertionSortSpans = insertionSort (\a b -> compareLower (fst a) (fst b))
 
 spanCmp :: Ord a => (Bound a, Bound a) -> (Bound a, Bound a) -> Ordering
 spanCmp x@(xlow, xhigh@(Bound xHighValue _)) y@(ylow@(Bound yLowValue _), _) =
-   if (boundIsBetween xlow y /= Separate) || (boundIsBetween ylow x /= Separate)
+   if boundsOverlapType x y /= Separate
       then EQ
       else if xHighValue < yLowValue then LT else GT
 

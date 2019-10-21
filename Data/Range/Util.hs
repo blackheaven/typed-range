@@ -47,8 +47,15 @@ invertBound :: Bound a -> Bound a
 invertBound (Bound x Inclusive) = Bound x Exclusive
 invertBound (Bound x Exclusive) = Bound x Inclusive
 
+isEmptySpan :: Eq a => (Bound a, Bound a) -> Bool
+isEmptySpan (Bound a aType, Bound b bType) = a == b && aType == bType && aType == Exclusive
+
 boundsOverlapType :: Ord a => (Bound a, Bound a) -> (Bound a, Bound a) -> OverlapType
-boundsOverlapType (a, b) (x, y) = (a `boundIsBetween` (x, y)) `orOverlapType` (x `boundIsBetween` (a, b))
+boundsOverlapType l@(ab@(Bound a aType), bb@(Bound b bType)) r@(xb@(Bound x xType), yb@(Bound y yType))
+   | isEmptySpan l || isEmptySpan r    = Separate
+   | a == x                            = Overlap
+   | b == y                            = Overlap
+   | otherwise = (ab `boundIsBetween` (xb, yb)) `orOverlapType` (xb `boundIsBetween` (ab, bb))
 
 orOverlapType :: OverlapType -> OverlapType -> OverlapType
 orOverlapType Overlap _ = Overlap
@@ -66,7 +73,7 @@ pointJoinType _ _ = Adjoin
 -- bound order
 boundCmp :: (Ord a) => Bound a -> (Bound a, Bound a) -> Ordering
 boundCmp ab@(Bound a aType) (xb@(Bound x xType), yb@(Bound y yType))
-   | boundIsBetween ab (xb, yb) == Overlap = EQ
+   | boundIsBetween ab (xb, yb) /= Separate = EQ
    | a < x = LT
    | otherwise = GT
 
