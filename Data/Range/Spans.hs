@@ -45,7 +45,7 @@ joinSpans xs = xs
 
 -- Assume that you are given a sorted list of spans
 unionSpans :: Ord a => [(Bound a, Bound a)] -> [(Bound a, Bound a)]
-unionSpans (f@(a, b) : s@(x, y) : xs) = if boundIsBetween x f /= Separate
+unionSpans (f@(a, b) : s@(x, y) : xs) = if boundsOverlapType f s /= Separate
    then unionSpans ((a, maxBounds b y) : xs)
    else f : unionSpans (s : xs)
 unionSpans xs = xs

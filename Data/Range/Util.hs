@@ -74,7 +74,7 @@ pointJoinType _ _ = Adjoin
 boundCmp :: (Ord a) => Bound a -> (Bound a, Bound a) -> Ordering
 boundCmp ab@(Bound a aType) (xb@(Bound x xType), yb@(Bound y yType))
    | boundIsBetween ab (xb, yb) /= Separate = EQ
-   | a < x = LT
+   | a <= x = LT
    | otherwise = GT
 
 boundIsBetween :: (Ord a) => Bound a -> (Bound a, Bound a) -> OverlapType
