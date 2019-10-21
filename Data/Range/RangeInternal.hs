@@ -72,12 +72,12 @@ intersectWith _ Nothing _ = []
 intersectWith fix (Just lower) xs = catMaybes $ fmap (fix lower) xs
 
 fixLower :: (Ord a) => Bound a -> (Bound a, Bound a) -> Maybe (Bound a, Bound a)
-fixLower lower@(Bound lowerValue lowerType) (x@(Bound xValue xType), y@(Bound yValue yType)) = do
+fixLower lower@(Bound lowerValue _) (x, y@(Bound yValue _)) = do
    guard (lowerValue <= yValue)
    return (maxBounds lower x, y)
 
 fixUpper :: (Ord a) => Bound a -> (Bound a, Bound a) -> Maybe (Bound a, Bound a)
-fixUpper upper@(Bound upperValue upperType) (x@(Bound xValue xType), y@(Bound yValue yType)) = do
+fixUpper upper@(Bound upperValue _) (x@(Bound xValue _), y) = do
    guard (xValue <= upperValue)
    return (x, minBounds y upper)
 
@@ -96,7 +96,7 @@ intersectionRangeMerges one two = RM
       upperTwoSpans = intersectWith fixUpper (largestUpperBound two) (spanRanges one)
       intersectedSpans = intersectSpans (spanRanges one) (spanRanges two)
 
-      sortedResults = foldr1 insertionSortSpans
+      sortedResults = removeEmptySpans $ foldr1 insertionSortSpans
          [ lowerOneSpans
          , lowerTwoSpans
          , upperOneSpans
@@ -143,7 +143,7 @@ unionRangeMerges one two = infiniteCheck filterTwo
 
       infiniteCheck :: (Ord a) => RangeMerge a -> RangeMerge a
       infiniteCheck IRM = IRM
-      infiniteCheck rm@(RM (Just x) (Just y) _) = if compareLower x y /= GT
+      infiniteCheck rm@(RM (Just lower) (Just upper) _) = if compareUpperToLower upper lower /= LT
          then IRM
          else rm
       infiniteCheck rm = rm
@@ -277,4 +277,4 @@ joinRM rm = RM lower higher spansAfterHigher
             x -> x
 
 updateBound :: Bound a -> a -> Bound a
-updateBound (Bound a aType) b = Bound b aType
+updateBound (Bound _ aType) b = Bound b aType

@@ -14,7 +14,6 @@ import Data.Maybe (fromMaybe)
 import System.Random
 
 import Data.Range.Data
-import Data.Range.Util
 import Data.Range.RangeInternal
 
 instance (Num a, Integral a, Ord a, Random a) => Arbitrary (RangeMerge a) where
@@ -34,6 +33,10 @@ instance (Num a, Integral a, Ord a, Random a) => Arbitrary (RangeMerge a) where
       where
          maybeNumber = oneof [liftM Just arbitrarySizedIntegral, return Nothing]
 
+         maybeBound = do
+            isInclusive <- arbitrary
+            return (if isInclusive then Inclusive else Exclusive)
+
          lastMaybe :: [a] -> Maybe a
          lastMaybe [] = Nothing
          lastMaybe xs = Just . last $ xs
@@ -42,9 +45,6 @@ instance (Num a, Integral a, Ord a, Random a) => Arbitrary (RangeMerge a) where
          maxMaybe Nothing x = x
          maxMaybe (Just y) x = max x y
 
-         boundValue :: Bound a -> a
-         boundValue (Bound x _) = x
-
          generateSpanList :: (Num a, Ord a, Random a) => a -> Gen [(Bound a, Bound a)]
          generateSpanList start = do
             count <- choose (0, 10)
@@ -52,11 +52,13 @@ instance (Num a, Integral a, Ord a, Random a) => Arbitrary (RangeMerge a) where
             where
                helper :: (Num a, Ord a, Random a) => Integer -> a -> Gen [(Bound a, Bound a)]
                helper 0 _ = return []
-               helper x start = do
-                  first <- fmap (+start) $ choose (2, 100)
+               helper x hStart = do
+                  first <- fmap (+hStart) $ choose (2, 100)
+                  firstBound <- maybeBound
                   second <- fmap (+first) $ choose (2, 100)
+                  secondBound <- maybeBound
                   remainder <- helper (x - 1) second
-                  return $ (Bound first Inclusive, Bound second Inclusive) : remainder
+                  return $ (Bound first firstBound, Bound second secondBound) : remainder
 
 prop_export_load_is_identity :: RangeMerge Integer -> Bool
 prop_export_load_is_identity x = loadRanges (exportRangeMerge x) == x
@@ -105,8 +107,8 @@ prop_demorgans_law_two (a, b) =
    (invertRM (a `intersectionRangeMerges` b)) == ((invertRM a) `unionRangeMerges` (invertRM b))
 
 test_complex_laws = testGroup "complex set theory rules"
-   [ testProperty "DeMorgan Part 1: not (a or b) == (not a) and (not b)" prop_demorgans_law_one
-   , testProperty "DeMorgan Part 2: not (a and b) == (not a) or (not b)" prop_demorgans_law_two
+   [ testProperty "DeMorgan Part 1: not (a or b) == (not a) and (not b)" (withMaxSuccess 10000 prop_demorgans_law_one)
+   , testProperty "DeMorgan Part 2: not (a and b) == (not a) or (not b)" (withMaxSuccess 10000 prop_demorgans_law_two)
    ]
 
 rangeMergeTestCases =

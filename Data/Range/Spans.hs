@@ -14,10 +14,10 @@ insertionSortSpans :: (Ord a) => [(Bound a, Bound a)] -> [(Bound a, Bound a)] ->
 insertionSortSpans = insertionSort (\a b -> compareLower (fst a) (fst b))
 
 spanCmp :: Ord a => (Bound a, Bound a) -> (Bound a, Bound a) -> Ordering
-spanCmp x@(xlow, xhigh@(Bound xHighValue _)) y@(ylow@(Bound yLowValue _), _) =
+spanCmp x@(_, Bound xHighValue _) y@(Bound yLowValue _, _) =
    if boundsOverlapType x y /= Separate
       then EQ
-      else if xHighValue < yLowValue then LT else GT
+      else if xHighValue <= yLowValue then LT else GT
 
 intersectSpans :: (Ord a) => [(Bound a, Bound a)] -> [(Bound a, Bound a)] -> [(Bound a, Bound a)]
 intersectSpans (x@(xlow, xup@(Bound xUpValue _)) : xs) (y@(ylow, yup@(Bound yUpValue _)) : ys) =
@@ -45,7 +45,7 @@ joinSpans xs = xs
 
 -- Assume that you are given a sorted list of spans
 unionSpans :: Ord a => [(Bound a, Bound a)] -> [(Bound a, Bound a)]
-unionSpans (f@(a, b) : s@(x, y) : xs) = if boundsOverlapType f s /= Separate
+unionSpans (f@(a, b) : s@(_, y) : xs) = if boundsOverlapType f s /= Separate
    then unionSpans ((a, maxBounds b y) : xs)
    else f : unionSpans (s : xs)
 unionSpans xs = xs

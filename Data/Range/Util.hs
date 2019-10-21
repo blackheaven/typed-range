@@ -11,18 +11,24 @@ import Data.Range.Data
 -- codebases or libraries.
 
 compareLower :: Ord a => Bound a -> Bound a -> Ordering
-compareLower ab@(Bound a aType) bb@(Bound b bType)
+compareLower ab@(Bound a aType) bb@(Bound b _)
    | ab == bb     = EQ
    | a == b       = if aType == Inclusive then LT else GT
    | a < b        = LT
    | otherwise    = GT
 
 compareHigher :: Ord a => Bound a -> Bound a -> Ordering
-compareHigher ab@(Bound a aType) bb@(Bound b bType)
+compareHigher ab@(Bound a aType) bb@(Bound b _)
    | ab == bb     = EQ
    | a == b       = if aType == Inclusive then GT else LT
    | a < b        = LT
    | otherwise    = GT
+
+compareUpperToLower :: Ord a => Bound a -> Bound a -> Ordering
+compareUpperToLower (Bound upper upperType) (Bound lower lowerType)
+   | upper == lower  = if upperType == Inclusive || lowerType == Inclusive then EQ else LT
+   | upper < lower   = LT
+   | otherwise       = GT
 
 minBounds :: Ord a => Bound a -> Bound a -> Bound a
 minBounds ao bo = if compareLower ao bo == LT then ao else bo
@@ -50,8 +56,11 @@ invertBound (Bound x Exclusive) = Bound x Inclusive
 isEmptySpan :: Eq a => (Bound a, Bound a) -> Bool
 isEmptySpan (Bound a aType, Bound b bType) = a == b && aType == bType && aType == Exclusive
 
+removeEmptySpans :: Eq a => [(Bound a, Bound a)] -> [(Bound a, Bound a)]
+removeEmptySpans = filter (not . isEmptySpan)
+
 boundsOverlapType :: Ord a => (Bound a, Bound a) -> (Bound a, Bound a) -> OverlapType
-boundsOverlapType l@(ab@(Bound a aType), bb@(Bound b bType)) r@(xb@(Bound x xType), yb@(Bound y yType))
+boundsOverlapType l@(ab@(Bound a _), bb@(Bound b _)) r@(xb@(Bound x _), yb@(Bound y _))
    | isEmptySpan l || isEmptySpan r    = Separate
    | a == x                            = Overlap
    | b == y                            = Overlap
@@ -72,7 +81,7 @@ pointJoinType _ _ = Adjoin
 -- This function assumes that the bound on the left is a lower bound and that the range is in (lower, upper)
 -- bound order
 boundCmp :: (Ord a) => Bound a -> (Bound a, Bound a) -> Ordering
-boundCmp ab@(Bound a aType) (xb@(Bound x xType), yb@(Bound y yType))
+boundCmp ab@(Bound a _) (xb@(Bound x _), yb)
    | boundIsBetween ab (xb, yb) /= Separate = EQ
    | a <= x = LT
    | otherwise = GT
@@ -80,7 +89,7 @@ boundCmp ab@(Bound a aType) (xb@(Bound x xType), yb@(Bound y yType))
 boundIsBetween :: (Ord a) => Bound a -> (Bound a, Bound a) -> OverlapType
 boundIsBetween (Bound a aType) (Bound x xType, Bound y yType)
    | x > a     = Separate
-   | x == a    = pointJoinType aType yType
+   | x == a    = pointJoinType aType xType
    | a < y     = Overlap
    | a == y    = pointJoinType aType yType
    | otherwise = Separate
