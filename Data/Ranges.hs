@@ -33,6 +33,7 @@ module Data.Ranges (
 
 import qualified Data.Range as R
 
+-- TODO Can we make this use a Range Algebra internally ?
 newtype Ranges a = Ranges { unRanges :: [R.Range a] }
 
 instance Show a => Show (Ranges a) where
