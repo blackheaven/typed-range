@@ -14,6 +14,9 @@ data Bound a = Bound
    , boundType :: BoundType
    } deriving (Eq, Show)
 
+instance Functor Bound where
+   fmap f (Bound v vType) = Bound (f v) vType
+
 -- TODO can we implement Monoid for Range a with the addition of an empty?
 -- Or maybe we can implement Monoid for a list of ranges...
 
@@ -27,6 +30,13 @@ data Range a
    | UpperBoundRange (Bound a)      -- ^ Represents a range with only an inclusive upper bound.
    | InfiniteRange                  -- ^ Represents an infinite range over all values.
    deriving(Eq)
+
+instance Functor Range where
+   fmap f (SingletonRange x) = SingletonRange . f $ x
+   fmap f (SpanRange x y) = SpanRange (f <$> x) (f <$> y)
+   fmap f (LowerBoundRange x) = LowerBoundRange (f <$> x)
+   fmap f (UpperBoundRange x) = UpperBoundRange (f <$> x)
+   fmap _ InfiniteRange = InfiniteRange
 
 instance Show a => Show (Range a) where
    showsPrec i (SingletonRange a) = ((++) "SingletonRange ") . showsPrec i a
