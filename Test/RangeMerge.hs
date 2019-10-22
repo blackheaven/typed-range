@@ -15,8 +15,11 @@ import System.Random
 
 import Data.Range.Data
 import Data.Range.RangeInternal
+import Data.List (subsequences)
 
 instance (Num a, Integral a, Ord a, Random a) => Arbitrary (RangeMerge a) where
+   shrink = fmap (foldr unionRangeMerges emptyRangeMerge) . init . subsequences . unmergeRM
+
    arbitrary = do
       upperBound <- maybeNumber
       possibleSpanStart <- arbitrarySizedIntegral
@@ -107,8 +110,8 @@ prop_demorgans_law_two (a, b) =
    (invertRM (a `intersectionRangeMerges` b)) == ((invertRM a) `unionRangeMerges` (invertRM b))
 
 test_complex_laws = testGroup "complex set theory rules"
-   [ testProperty "DeMorgan Part 1: not (a or b) == (not a) and (not b)" (withMaxSuccess 10000 prop_demorgans_law_one)
-   , testProperty "DeMorgan Part 2: not (a and b) == (not a) or (not b)" (withMaxSuccess 10000 prop_demorgans_law_two)
+   [ testProperty "DeMorgan Part 1: not (a or b) == (not a) and (not b)" (verboseShrinking (withMaxSuccess 1000 prop_demorgans_law_one))
+   , testProperty "DeMorgan Part 2: not (a and b) == (not a) or (not b)" (verboseShrinking (withMaxSuccess 1000 prop_demorgans_law_two))
    ]
 
 rangeMergeTestCases =

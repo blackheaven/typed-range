@@ -187,41 +187,6 @@ filterUpperBound s@(_, upper) rm@(RM _ (Just upperBound) _) =
       GT -> rm
       EQ -> rm { largestUpperBound = Just $ maxBounds upperBound upper }
 
---appendSpanRM :: (Ord a) => (Bound a, Bound a) -> RangeMerge a -> RangeMerge a
---appendSpanRM _ IRM = IRM
---appendSpanRM sp@(lower, higher) rm =
---   if (newUpper, newLower) == (lub, llb) && isLower lower newLower && (Just higher) > newUpper
---      then newRangesRM
---         { spanRanges = sp : spanRanges rm
---         }
---      else newRangesRM
---         { spanRanges = spanRanges rm
---         }
---   where
---      newRangesRM = rm
---         { largestLowerBound = newLower
---         , largestUpperBound = newUpper
---         }
---
---      isLower :: Ord a => a -> Maybe a -> Bool
---      isLower _ Nothing = True
---      isLower y (Just x) = y < x
---
---      lub = largestUpperBound rm
---      llb = largestLowerBound rm
---
---      newLower = do
---         bound <- llb
---         return $ if bound <= higher
---            then minBound bound lower
---            else bound
---
---      newUpper = do
---         bound <- lub
---         return $ if lower <= bound
---            then maxBound bound higher
---            else bound
-
 invertRM :: (Ord a) => RangeMerge a -> RangeMerge a
 invertRM IRM = emptyRangeMerge
 invertRM (RM Nothing Nothing []) = IRM
@@ -278,3 +243,9 @@ joinRM rm = RM lower higher spansAfterHigher
 
 updateBound :: Bound a -> a -> Bound a
 updateBound (Bound _ aType) b = Bound b aType
+
+unmergeRM :: RangeMerge a -> [RangeMerge a]
+unmergeRM (RM lower upper spans) =
+   (maybe [] (\x -> [RM Nothing (Just x) []]) upper) ++
+   fmap (\x -> RM Nothing Nothing [x]) spans ++
+   (maybe [] (\x -> [RM (Just x) Nothing []]) lower)
