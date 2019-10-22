@@ -22,11 +22,16 @@ spanCmp x@(_, Bound xHighValue _) y@(Bound yLowValue _, _) =
 intersectSpans :: (Ord a) => [(Bound a, Bound a)] -> [(Bound a, Bound a)] -> [(Bound a, Bound a)]
 intersectSpans (x@(xlow, xup@(Bound xUpValue _)) : xs) (y@(ylow, yup@(Bound yUpValue _)) : ys) =
    case spanCmp x y of
-      EQ -> (maxBounds xlow ylow, minBounds xup yup) : if xUpValue < yUpValue
-         then intersectSpans xs (y : ys)
-         else intersectSpans (x : xs) ys
+      EQ -> if (not . isEmptySpan $ intersectedSpan) then intersectedSpan : equalNext else equalNext
       LT -> intersectSpans xs (y : ys)
       GT -> intersectSpans (x : xs) ys
+   where
+      intersectedSpan = (maxBoundsIntersection xlow ylow, minBoundsIntersection xup yup)
+
+      lessThanNext = intersectSpans xs (y : ys)
+      greaterThanNext = intersectSpans (x : xs) ys
+      equalNext = if xUpValue < yUpValue then lessThanNext else greaterThanNext
+
 intersectSpans _ _ = []
 
 insertSpan :: Ord a => (a, b) -> [(a, b)] -> [(a, b)]

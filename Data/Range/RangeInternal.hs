@@ -74,12 +74,12 @@ intersectWith fix (Just lower) xs = catMaybes $ fmap (fix lower) xs
 fixLower :: (Ord a) => Bound a -> (Bound a, Bound a) -> Maybe (Bound a, Bound a)
 fixLower lower@(Bound lowerValue _) (x, y@(Bound yValue _)) = do
    guard (lowerValue <= yValue)
-   return (maxBounds lower x, y)
+   return (maxBoundsIntersection lower x, y)
 
 fixUpper :: (Ord a) => Bound a -> (Bound a, Bound a) -> Maybe (Bound a, Bound a)
 fixUpper upper@(Bound upperValue _) (x@(Bound xValue _), y) = do
    guard (xValue <= upperValue)
-   return (x, minBounds y upper)
+   return (x, minBoundsIntersection y upper)
 
 intersectionRangeMerges :: (Ord a) => RangeMerge a -> RangeMerge a -> RangeMerge a
 intersectionRangeMerges IRM two = two
@@ -105,8 +105,8 @@ intersectionRangeMerges one two = RM
          , calculateBoundOverlap one two
          ]
 
-      newLowerBound = calculateNewBound largestLowerBound maxBounds one two
-      newUpperBound = calculateNewBound largestUpperBound minBounds one two
+      newLowerBound = calculateNewBound largestLowerBound maxBoundsIntersection one two
+      newUpperBound = calculateNewBound largestUpperBound minBoundsIntersection one two
 
       calculateNewBound
          :: (Ord a)
@@ -245,6 +245,7 @@ updateBound :: Bound a -> a -> Bound a
 updateBound (Bound _ aType) b = Bound b aType
 
 unmergeRM :: RangeMerge a -> [RangeMerge a]
+unmergeRM IRM = [IRM]
 unmergeRM (RM lower upper spans) =
    (maybe [] (\x -> [RM Nothing (Just x) []]) upper) ++
    fmap (\x -> RM Nothing Nothing [x]) spans ++

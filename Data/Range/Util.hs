@@ -24,6 +24,20 @@ compareHigher ab@(Bound a aType) bb@(Bound b _)
    | a < b        = LT
    | otherwise    = GT
 
+compareLowerIntersection :: Ord a => Bound a -> Bound a -> Ordering
+compareLowerIntersection ab@(Bound a aType) bb@(Bound b _)
+   | ab == bb     = EQ
+   | a == b       = if aType == Exclusive then LT else GT
+   | a < b        = LT
+   | otherwise    = GT
+
+compareHigherIntersection :: Ord a => Bound a -> Bound a -> Ordering
+compareHigherIntersection ab@(Bound a aType) bb@(Bound b _)
+   | ab == bb     = EQ
+   | a == b       = if aType == Exclusive then GT else LT
+   | a < b        = LT
+   | otherwise    = GT
+
 compareUpperToLower :: Ord a => Bound a -> Bound a -> Ordering
 compareUpperToLower (Bound upper upperType) (Bound lower lowerType)
    | upper == lower  = if upperType == Inclusive || lowerType == Inclusive then EQ else LT
@@ -35,6 +49,12 @@ minBounds ao bo = if compareLower ao bo == LT then ao else bo
 
 maxBounds :: Ord a => Bound a -> Bound a -> Bound a
 maxBounds ao bo = if compareHigher ao bo == GT then ao else bo
+
+minBoundsIntersection :: Ord a => Bound a -> Bound a -> Bound a
+minBoundsIntersection ao bo = if compareLowerIntersection ao bo == LT then ao else bo
+
+maxBoundsIntersection :: Ord a => Bound a -> Bound a -> Bound a
+maxBoundsIntersection ao bo = if compareHigherIntersection ao bo == GT then ao else bo
 
 insertionSort :: (a -> a -> Ordering) -> [a] -> [a] -> [a]
 insertionSort comp xs ys = go xs ys
@@ -54,7 +74,7 @@ invertBound (Bound x Inclusive) = Bound x Exclusive
 invertBound (Bound x Exclusive) = Bound x Inclusive
 
 isEmptySpan :: Eq a => (Bound a, Bound a) -> Bool
-isEmptySpan (Bound a aType, Bound b bType) = a == b && aType == bType && aType == Exclusive
+isEmptySpan (Bound a aType, Bound b bType) = a == b && (aType == Exclusive || bType == Exclusive)
 
 removeEmptySpans :: Eq a => [(Bound a, Bound a)] -> [(Bound a, Bound a)]
 removeEmptySpans = filter (not . isEmptySpan)
