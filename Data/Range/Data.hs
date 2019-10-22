@@ -51,4 +51,4 @@ instance Show a => Show (Range a) where
    showsPrec i (LowerBoundRange (Bound a Exclusive)) = ((++) "lbe ") . (showsPrec i a)
    showsPrec i (UpperBoundRange (Bound a Inclusive)) = ((++) "ubi ") . (showsPrec i a)
    showsPrec i (UpperBoundRange (Bound a Exclusive)) = ((++) "ube ") . (showsPrec i a)
-   showsPrec i (InfiniteRange) = (++) "inf"
+   showsPrec _ (InfiniteRange) = (++) "inf"
