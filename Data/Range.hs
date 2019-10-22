@@ -393,5 +393,30 @@ fromRanges = takeEvenly . fmap fromRange . mergeRanges
             where
                zero = toEnum 0
 
+-- | Joins together ranges that we only know can be joined because of the 'Enum' class.
+--
+-- To make the purpose of this method easier to understand, let's run throuh a simple example:
+--
+-- >>> mergeRanges [1 +=+ 5, 6 +=+ 10] :: [Range Integer]
+-- [1 +=+ 5,6 +=+ 10]
+--
+-- In this example, you know that the values are all of the type 'Integer'. Because of this, you
+-- know that there are no values between 5 and 6. You may expect that the `mergeRanges` function
+-- should "just know" that it can merge these together; but it can't because it does not have the
+-- required constraints. This becomes more obvious if you modify the example to use 'Double' instead:
+--
+-- >>> mergeRanges [1.5 +=+ 5.5, 6.5 +=+ 10.5] :: [Range Double]
+-- [1.5 +=+ 5.5,6.5 +=+ 10.5]
+--
+-- Now we can see that there are an infinite number of values between 5.5 and 6.5 and thus no such 
+-- join between the two ranges could occur.
+--
+-- This function, joinRanges, provides the missing piece that you would expect:
+--
+-- >>> joinRanges $ mergeRanges [1 +=+ 5, 6 +=+ 10] :: [Range Integer]
+-- [1 +=+ 10]
+--
+-- You can use this method to ensure that all ranges for whom the value implements 'Enum' can be
+-- compressed to their smallest representation.
 joinRanges :: (Ord a, Enum a) => [Range a] -> [Range a]
 joinRanges = exportRangeMerge . joinRM . loadRanges
