@@ -3,9 +3,6 @@
 -- This module contains every function that purely performs operations on spans.
 module Data.Range.Spans where
 
-import Data.List (sortBy, insertBy)
-import Data.Ord (comparing)
-
 import Data.Range.Util
 import Data.Range.Data
 
@@ -34,11 +31,6 @@ intersectSpans (x@(xlow, xup@(Bound xUpValue _)) : xs) (y@(ylow, yup@(Bound yUpV
 
 intersectSpans _ _ = []
 
-insertSpan :: Ord a => (a, b) -> [(a, b)] -> [(a, b)]
-insertSpan = insertBy (comparing fst)
-
-sortSpans :: (Ord a) => [(a, a)] -> [(a, a)]
-sortSpans = sortBy (comparing fst)
 
 -- Assume that you are given a sorted list of spans
 joinSpans :: (Eq a, Enum a) => [(Bound a, Bound a)] -> [(Bound a, Bound a)]
@@ -59,8 +51,3 @@ unionSpans xs = xs
 invertSpans :: [(Bound a, Bound a)] -> [(Bound a, Bound a)]
 invertSpans ((_, x) : s@(y, _) : xs) = (invertBound x, invertBound y) : invertSpans (s : xs)
 invertSpans _ = []
-
-hasOverlaps :: (Ord a, Enum a) => [(a, a)] -> Bool
-hasOverlaps xs = any isOverlapping (pairs xs)
-   where
-      isOverlapping ((x, y), (a, b)) = isBetween x (pred a, succ b) || isBetween a (pred x, succ y)

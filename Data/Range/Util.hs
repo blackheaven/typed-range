@@ -66,9 +66,6 @@ insertionSort comp xs ys = go xs ys
       go [] z = z
       go z [] = z
 
-isBetween :: (Ord a) => a -> (a, a) -> Bool
-isBetween a (x, y) = (x <= a) && (a <= y)
-
 invertBound :: Bound a -> Bound a
 invertBound (Bound x Inclusive) = Bound x Exclusive
 invertBound (Bound x Exclusive) = Bound x Inclusive
@@ -106,6 +103,7 @@ boundCmp ab@(Bound a _) (xb@(Bound x _), yb)
    | a <= x = LT
    | otherwise = GT
 
+-- TODO replace everywhere with boundsOverlapType
 boundIsBetween :: (Ord a) => Bound a -> (Bound a, Bound a) -> OverlapType
 boundIsBetween (Bound a aType) (Bound x xType, Bound y yType)
    | x > a     = Separate
@@ -128,17 +126,6 @@ againstUpperBound (Bound a aType) (Bound upper upperType)
    | upper == a   = pointJoinType aType upperType
    | a < upper    = Overlap
    | otherwise    = Separate
-
-isBetweenBounds :: (Ord a) => a -> (Bound a, Bound a) -> Bool
-isBetweenBounds a (x, y) = (a `isGreaterThan` x) && (a `isLessThan` y)
-
-isLessThan :: (Ord a) => a -> Bound a -> Bool
-isLessThan a (Bound x Inclusive) = a <= x
-isLessThan a (Bound x Exclusive) = a < x
-
-isGreaterThan :: (Ord a) => a -> Bound a -> Bool
-isGreaterThan a (Bound x Inclusive) = a >= x
-isGreaterThan a (Bound x Exclusive) = a > x
 
 takeEvenly :: [[a]] -> [a]
 takeEvenly [] = []

@@ -199,10 +199,9 @@ rangesOverlap :: (Ord a) => Range a -> Range a -> Bool
 rangesOverlap a b = Overlap == (rangesOverlapType a b)
 
 rangesOverlapType :: (Ord a) => Range a -> Range a -> OverlapType
-rangesOverlapType (SingletonRange a) (SingletonRange b) = if a == b then Overlap else Separate
-rangesOverlapType (SingletonRange a) (SpanRange x y) = singletonInSpan a (x, y)
-rangesOverlapType (SingletonRange a) (LowerBoundRange lower) = againstLowerBound (Bound a Inclusive) lower
-rangesOverlapType (SingletonRange a) (UpperBoundRange upper) = againstUpperBound (Bound a Inclusive) upper
+rangesOverlapType (SingletonRange a) x = rangesOverlapType (SpanRange b b) x
+   where
+      b = Bound a Inclusive
 rangesOverlapType (SpanRange x y) (SpanRange a b) = boundsOverlapType (x, y) (a, b)
 rangesOverlapType (SpanRange _ y) (LowerBoundRange lower) = againstLowerBound y lower
 rangesOverlapType (SpanRange x _) (UpperBoundRange upper) = againstUpperBound x upper
