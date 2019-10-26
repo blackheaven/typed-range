@@ -31,6 +31,7 @@ module Data.Ranges (
   Ranges(..)
 ) where
 
+import Data.Semigroup
 import qualified Data.Range as R
 
 -- TODO Can we make this use a Range Algebra internally ?
