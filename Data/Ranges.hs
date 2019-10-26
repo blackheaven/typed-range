@@ -1,3 +1,6 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE Safe #-}
+
 -- | This module provides a simpler interface than the 'Data.Range' module, allowing you to work with
 -- multiple ranges at the same time.
 --
@@ -30,6 +33,12 @@ module Data.Ranges (
   -- * Data types
   Ranges(..)
 ) where
+
+import Data.Semigroup
+
+#if !MIN_VERSION_base(4,8,0)
+import Control.Applicative
+#endif
 
 import qualified Data.Range as R
 
