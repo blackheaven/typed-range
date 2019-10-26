@@ -34,9 +34,7 @@ module Data.Ranges (
   Ranges(..)
 ) where
 
-#if !MIN_VERSION_base(4,9,0)
 import Data.Semigroup
-#endif
 
 #if !MIN_VERSION_base(4,8,0)
 import Control.Applicative
