@@ -61,6 +61,7 @@ library
 
   -- Modules included in this library but not exported.
   other-modules:  Data.Range.Data
+                  , Data.Range.Operators
                   , Data.Range.RangeInternal
                   , Data.Range.Spans
                   , Data.Range.Util

@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 -- This is only okay in test classes
 
-module Test.RangeMerge 
+module Test.RangeMerge
    ( rangeMergeTestCases
    ) where
 
@@ -13,24 +13,32 @@ import Control.Monad (liftM)
 import Data.Maybe (fromMaybe)
 import System.Random
 
+import Data.Range.Data
 import Data.Range.RangeInternal
+import Data.List (subsequences)
 
 instance (Num a, Integral a, Ord a, Random a) => Arbitrary (RangeMerge a) where
+   shrink = fmap (foldr unionRangeMerges emptyRangeMerge) . init . subsequences . unmergeRM
+
    arbitrary = do
       upperBound <- maybeNumber
       possibleSpanStart <- arbitrarySizedIntegral
       spans <- generateSpanList (fromMaybe possibleSpanStart upperBound)
-      lowerBound <- oneof 
-         [ fmap Just $ fmap ((+) $ maxMaybe (fmap snd $ lastMaybe spans) $ maxMaybe upperBound possibleSpanStart) $ choose (2, 100)
+      lowerBound <- oneof
+         [ fmap Just $ fmap ((+) $ maxMaybe (fmap (boundValue . snd) $ lastMaybe spans) $ maxMaybe upperBound possibleSpanStart) $ choose (2, 100)
          , return Nothing
          ]
-      return RM 
-         { largestUpperBound = upperBound
-         , largestLowerBound = lowerBound 
+      return RM
+         { largestUpperBound = fmap (\x -> Bound x Inclusive) $ upperBound
+         , largestLowerBound = fmap (\x -> Bound x Inclusive) $ lowerBound
          , spanRanges = spans
          }
       where
          maybeNumber = oneof [liftM Just arbitrarySizedIntegral, return Nothing]
+
+         maybeBound = do
+            isInclusive <- arbitrary
+            return (if isInclusive then Inclusive else Exclusive)
 
          lastMaybe :: [a] -> Maybe a
          lastMaybe [] = Nothing
@@ -40,18 +48,20 @@ instance (Num a, Integral a, Ord a, Random a) => Arbitrary (RangeMerge a) where
          maxMaybe Nothing x = x
          maxMaybe (Just y) x = max x y
 
-         generateSpanList :: (Num a, Ord a, Random a) => a -> Gen [(a, a)]
+         generateSpanList :: (Num a, Ord a, Random a) => a -> Gen [(Bound a, Bound a)]
          generateSpanList start = do
             count <- choose (0, 10)
             helper count start
             where
-               helper :: (Num a, Ord a, Random a) => Integer -> a -> Gen [(a, a)]
+               helper :: (Num a, Ord a, Random a) => Integer -> a -> Gen [(Bound a, Bound a)]
                helper 0 _ = return []
-               helper x start = do
-                  first <- fmap (+start) $ choose (2, 100)
+               helper x hStart = do
+                  first <- fmap (+hStart) $ choose (2, 100)
+                  firstBound <- maybeBound
                   second <- fmap (+first) $ choose (2, 100)
+                  secondBound <- maybeBound
                   remainder <- helper (x - 1) second
-                  return $ (first, second) : remainder
+                  return $ (Bound first firstBound, Bound second secondBound) : remainder
 
 prop_export_load_is_identity :: RangeMerge Integer -> Bool
 prop_export_load_is_identity x = loadRanges (exportRangeMerge x) == x
@@ -79,29 +89,29 @@ test_unionRM = testGroup "unionRangeMerges function"
    ]
 
 prop_intersection_with_empty_is_empty :: RangeMerge Integer -> Bool
-prop_intersection_with_empty_is_empty rm = 
+prop_intersection_with_empty_is_empty rm =
    (rm `intersectionRangeMerges` emptyRangeMerge) == emptyRangeMerge
 
 prop_intersection_with_infinite_is_self :: RangeMerge Integer -> Bool
-prop_intersection_with_infinite_is_self rm = 
+prop_intersection_with_infinite_is_self rm =
    (rm `intersectionRangeMerges` IRM) == rm
 
 test_intersectionRM = testGroup "intersectionRangeMerges function"
-   [ testProperty "Intersection with empty is empty" prop_intersection_with_empty_is_empty 
-   , testProperty "Intersection with infinite is self" prop_intersection_with_infinite_is_self 
+   [ testProperty "Intersection with empty is empty" prop_intersection_with_empty_is_empty
+   , testProperty "Intersection with infinite is self" prop_intersection_with_infinite_is_self
    ]
 
 prop_demorgans_law_one :: (RangeMerge Integer, RangeMerge Integer) -> Bool
-prop_demorgans_law_one (a, b) = 
+prop_demorgans_law_one (a, b) =
    (invertRM (a `unionRangeMerges` b)) == ((invertRM a) `intersectionRangeMerges` (invertRM b))
 
 prop_demorgans_law_two :: (RangeMerge Integer, RangeMerge Integer) -> Bool
-prop_demorgans_law_two (a, b) = 
+prop_demorgans_law_two (a, b) =
    (invertRM (a `intersectionRangeMerges` b)) == ((invertRM a) `unionRangeMerges` (invertRM b))
 
 test_complex_laws = testGroup "complex set theory rules"
-   [ testProperty "DeMorgan Part 1: not (a or b) == (not a) and (not b)" prop_demorgans_law_one
-   , testProperty "DeMorgan Part 2: not (a and b) == (not a) or (not b)" prop_demorgans_law_two
+   [ testProperty "DeMorgan Part 1: not (a or b) == (not a) and (not b)" (verboseShrinking (withMaxSuccess 10000 prop_demorgans_law_one))
+   , testProperty "DeMorgan Part 2: not (a and b) == (not a) or (not b)" (verboseShrinking (withMaxSuccess 10000 prop_demorgans_law_two))
    ]
 
 rangeMergeTestCases =
