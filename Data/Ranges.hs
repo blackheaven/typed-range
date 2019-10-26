@@ -31,7 +31,14 @@ module Data.Ranges (
   Ranges(..)
 ) where
 
+#if !MIN_VERSION_base(4,9,0)
 import Data.Semigroup
+#endif
+
+#if !MIN_VERSION_base(4,8,0)
+import Control.Applicative
+#endif
+
 import qualified Data.Range as R
 
 -- TODO Can we make this use a Range Algebra internally ?
