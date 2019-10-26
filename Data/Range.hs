@@ -72,20 +72,21 @@
 --
 -- = Use case 2: Version ranges
 --
--- All the Data.Range library really needs to work, in the Ord type. If you have a data type that can
+-- All the 'Data.Range' library really needs to work, is the Ord type. If you have a data type that can
 -- be ordered, than we can perform range calculations on it. The Data.Version type is an excellent example
 -- of this. For example, let's say that you want to say: "I accept a version range of [1.1.0, 1.2.1] or [1.3, 1.4) or [1.4, 1.4.2)"
 -- then you can write that as:
 --
 -- >>> :m + Data.Version
--- >>> let ranges = mergeRanges [Version [1, 1, 0] [] +=+ Version [1,2,1] [], Version [1,3] [] +=* Version [1,4] [], Version [1,4] [] +=* Version [1,4,2] []]
--- >>> inRanges ranges (Version [1,0] [])
+-- >>> let v x = Version x []
+-- >>> let ranges = mergeRanges [v [1, 1, 0] +=+ v [1,2,1], v [1,3] +=* v [1,4], v [1,4] +=* v [1,4,2]]
+-- >>> inRanges ranges (v [1,0])
 -- False
--- >>> inRanges ranges (Version [1,5] [])
+-- >>> inRanges ranges (v [1,5])
 -- False
--- >>> inRanges ranges (Version [1,1,5] [])
+-- >>> inRanges ranges (v [1,1,5])
 -- True
--- >>> inRanges ranges (Version [1,3,5] [])
+-- >>> inRanges ranges (v [1,3,5])
 -- True
 --
 -- As you can see, it is almost identical to the previous example, yet you are now comparing if a version is within a version range!
@@ -138,8 +139,8 @@ import qualified Data.Range.Algebra as Alg
 --
 -- For example:
 --
--- >>> union [SpanRange 1 10] [SpanRange 5 (15 :: Integer)]
--- [SpanRange 1 15]
+-- >>> union [1 +=+ 10] [5 +=+ (15 :: Integer)]
+-- [1 +=+ 15]
 -- (0.00 secs, 587,152 bytes)
 union :: (Ord a) => [Range a] -> [Range a] -> [Range a]
 union a b = Alg.eval $ Alg.union (Alg.const a) (Alg.const b)
@@ -150,8 +151,8 @@ union a b = Alg.eval $ Alg.union (Alg.const a) (Alg.const b)
 --
 -- For example:
 --
--- >>> intersection [SpanRange 1 10] [SpanRange 5 (15 :: Integer)]
--- [SpanRange 5 10]
+-- >>> intersection [1 +=* 10] [5 +=+ (15 :: Integer)]
+-- [5 +=* 10]
 -- (0.00 secs, 584,616 bytes)
 intersection :: (Ord a) => [Range a] -> [Range a] -> [Range a]
 intersection a b = Alg.eval $ Alg.intersection (Alg.const a) (Alg.const b)
@@ -162,8 +163,8 @@ intersection a b = Alg.eval $ Alg.intersection (Alg.const a) (Alg.const b)
 --
 -- For example:
 --
--- >>> difference [SpanRange 1 10] [SpanRange 5 (15 :: Integer)]
--- [SpanRange 1 4]
+-- >>> difference [1 +=+ 10] [5 +=+ (15 :: Integer)]
+-- [1 +=* 5]
 -- (0.00 secs, 590,424 bytes)
 difference :: (Ord a) => [Range a] -> [Range a] -> [Range a]
 difference a b = Alg.eval $ Alg.difference (Alg.const a) (Alg.const b)
@@ -173,8 +174,8 @@ difference a b = Alg.eval $ Alg.difference (Alg.const a) (Alg.const b)
 --
 -- For example:
 --
--- >>> invert [SpanRange 1 10, SpanRange 15 (20 :: Integer)]
--- [LowerBoundRange 21,UpperBoundRange 0,SpanRange 11 14]
+-- >>> invert [1 +=* 10, 15 *=+ (20 :: Integer)]
+-- [ube 1,10 +=+ 15,lbe 20]
 -- (0.00 secs, 623,456 bytes)
 invert :: (Ord a) => [Range a] -> [Range a]
 invert = Alg.eval . Alg.invert . Alg.const
