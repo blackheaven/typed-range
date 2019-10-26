@@ -1,3 +1,6 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE Safe #-}
+
 -- | This module provides a simpler interface than the 'Data.Range' module, allowing you to work with
 -- multiple ranges at the same time.
 --
