@@ -11,7 +11,7 @@
 --
 -- This library supports five different types of ranges:
 --
---  * 'SpanRange': A range starting from a value and ending with another value
+--  * 'SpanRange': A range starting from a value and ending with another value.
 --  * 'SingletonRange': This range is really just a shorthand for a range that starts and ends with the same value.
 --  * 'LowerBoundRange': A range that starts at a value and extends infinitely in the positive direction.
 --  * 'UpperBoundRange': A range that starts at a value and extends infinitely in the negative direction.
