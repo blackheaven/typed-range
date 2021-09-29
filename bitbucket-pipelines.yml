@@ -44,15 +44,3 @@ pipelines:
           caches:
             - cabal-8-0
           script: *v8OrLowerCommonScript
-      - step:
-          name: "Haskell 7.10"
-          image: haskell:7.10
-          caches:
-            - cabal-7-10
-          script: *v8OrLowerCommonScript
-      - step:
-          name: "Haskell 7.8"
-          image: haskell:7.8
-          caches:
-            - cabal-7-8
-          script: *v8OrLowerCommonScript
