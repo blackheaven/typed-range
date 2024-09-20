@@ -5,13 +5,7 @@
 /.cabal-sandbox
 /cabal.sandbox.config
 
-# Temporary Files
-*~
-.*.swp
-*.log
-
-# HTodo
-/.htodo.db
-
-# Idea
-/.idea
+# nix & co
+.direnv
+.env
+result

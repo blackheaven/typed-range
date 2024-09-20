@@ -93,46 +93,51 @@
 -- Not only that, but so long as your type is orderable, the ranges can be merged together cleanly.
 --
 -- With any luck, you can apply this library to your use case of choice. Good luck!
-module Data.Range (
-      -- * Range creation
-      (+=+),
-      (+=*),
-      (*=+),
-      (*=*),
-      lbi,
-      lbe,
-      ubi,
-      ube,
-      inf,
-      -- * Comparison functions
-      inRange,
-      inRanges,
-      aboveRange,
-      aboveRanges,
-      belowRange,
-      belowRanges,
-      rangesOverlap,
-      rangesAdjoin,
-      -- * Set operations
-      mergeRanges,
-      union,
-      intersection,
-      difference,
-      invert,
-      -- * Enumerable methods
-      fromRanges,
-      joinRanges,
-      -- * Data types
-      Bound(..),
-      BoundType(..),
-      Range(..)
-   ) where
+module Data.Range.Typed
+  ( -- * Range creation
+    (+=+),
+    (+=*),
+    (*=+),
+    (*=*),
+    lbi,
+    lbe,
+    ubi,
+    ube,
+    inf,
 
-import Data.Range.Data
-import Data.Range.Operators
-import Data.Range.Util
-import Data.Range.RangeInternal (exportRangeMerge, joinRM, loadRanges)
-import qualified Data.Range.Algebra as Alg
+    -- * Comparison functions
+    inRange,
+    inRanges,
+    aboveRange,
+    aboveRanges,
+    belowRange,
+    belowRanges,
+    rangesOverlap,
+    rangesAdjoin,
+
+    -- * Set operations
+    mergeRanges,
+    union,
+    intersection,
+    difference,
+    invert,
+
+    -- * Enumerable methods
+    fromRanges,
+    joinRanges,
+
+    -- * Data types
+    Bound (..),
+    BoundType (..),
+    Range (..),
+  )
+where
+
+import qualified Data.Range.Typed.Algebra as Alg
+import Data.Range.Typed.Data
+import Data.Range.Typed.Operators
+import Data.Range.Typed.RangeInternal (exportRangeMerge, joinRM, loadRanges)
+import Data.Range.Typed.Util
 
 -- | Performs a set union between the two input ranges and returns the resultant set of
 -- ranges.
@@ -201,8 +206,8 @@ rangesOverlap a b = Overlap == (rangesOverlapType a b)
 
 rangesOverlapType :: (Ord a) => Range a -> Range a -> OverlapType
 rangesOverlapType (SingletonRange a) x = rangesOverlapType (SpanRange b b) x
-   where
-      b = Bound a Inclusive
+  where
+    b = Bound a Inclusive
 rangesOverlapType (SpanRange x y) (SpanRange a b) = boundsOverlapType (x, y) (a, b)
 rangesOverlapType (SpanRange _ y) (LowerBoundRange lower) = againstLowerBound y lower
 rangesOverlapType (SpanRange x _) (UpperBoundRange upper) = againstUpperBound x upper
@@ -281,11 +286,11 @@ inRanges rs a = any (`inRange` a) rs
 -- >>> aboveRange inf (6 :: Integer)
 -- False
 aboveRange :: (Ord a) => Range a -> a -> Bool
-aboveRange (SingletonRange a)       value = value > a
-aboveRange (SpanRange _ y)          value = Overlap == againstLowerBound (Bound value Inclusive) (invertBound y)
-aboveRange (LowerBoundRange _)      _     = False
-aboveRange (UpperBoundRange upper)  value = Overlap == againstLowerBound (Bound value Inclusive) (invertBound upper)
-aboveRange InfiniteRange            _     = False
+aboveRange (SingletonRange a) value = value > a
+aboveRange (SpanRange _ y) value = Overlap == againstLowerBound (Bound value Inclusive) (invertBound y)
+aboveRange (LowerBoundRange _) _ = False
+aboveRange (UpperBoundRange upper) value = Overlap == againstLowerBound (Bound value Inclusive) (invertBound upper)
+aboveRange InfiniteRange _ = False
 
 -- | Checks if the value provided is above all of the ranges provided.
 aboveRanges :: (Ord a) => [Range a] -> a -> Bool
@@ -312,11 +317,11 @@ aboveRanges rs a = all (`aboveRange` a) rs
 -- >>> belowRange inf (6 :: Integer)
 -- False
 belowRange :: (Ord a) => Range a -> a -> Bool
-belowRange (SingletonRange a)       value = value < a
-belowRange (SpanRange x _)          value = Overlap == againstUpperBound (Bound value Inclusive) (invertBound x)
-belowRange (LowerBoundRange lower)  value = Overlap == againstUpperBound (Bound value Inclusive) (invertBound lower)
-belowRange (UpperBoundRange _)      _     = False
-belowRange InfiniteRange            _     = False
+belowRange (SingletonRange a) value = value < a
+belowRange (SpanRange x _) value = Overlap == againstUpperBound (Bound value Inclusive) (invertBound x)
+belowRange (LowerBoundRange lower) value = Overlap == againstUpperBound (Bound value Inclusive) (invertBound lower)
+belowRange (UpperBoundRange _) _ = False
+belowRange InfiniteRange _ = False
 
 -- | Checks if the value provided is below all of the ranges provided.
 belowRanges :: (Ord a) => [Range a] -> a -> Bool
@@ -384,15 +389,15 @@ mergeRanges = Alg.eval . Alg.union (Alg.const []) . Alg.const
 -- (0.00 secs, 566,752 bytes)
 fromRanges :: (Ord a, Enum a) => [Range a] -> [a]
 fromRanges = takeEvenly . fmap fromRange . mergeRanges
-   where
-      fromRange range = case range of
-         SingletonRange x -> [x]
-         SpanRange (Bound a aType) (Bound b bType) -> [(if aType == Inclusive then a else succ a)..(if bType == Inclusive then b else pred b)]
-         LowerBoundRange (Bound x xType) -> iterate succ (if xType == Inclusive then x else succ x)
-         UpperBoundRange (Bound x xType) -> iterate pred (if xType == Inclusive then x else pred x)
-         InfiniteRange -> zero : takeEvenly [tail $ iterate succ zero, tail $ iterate pred zero]
-            where
-               zero = toEnum 0
+  where
+    fromRange range = case range of
+      SingletonRange x -> [x]
+      SpanRange (Bound a aType) (Bound b bType) -> [(if aType == Inclusive then a else succ a) .. (if bType == Inclusive then b else pred b)]
+      LowerBoundRange (Bound x xType) -> iterate succ (if xType == Inclusive then x else succ x)
+      UpperBoundRange (Bound x xType) -> iterate pred (if xType == Inclusive then x else pred x)
+      InfiniteRange -> zero : takeEvenly [tail $ iterate succ zero, tail $ iterate pred zero]
+        where
+          zero = toEnum 0
 
 -- | Joins together ranges that we only know can be joined because of the 'Enum' class.
 --
@@ -409,7 +414,7 @@ fromRanges = takeEvenly . fmap fromRange . mergeRanges
 -- >>> mergeRanges [1.5 +=+ 5.5, 6.5 +=+ 10.5] :: [Range Double]
 -- [1.5 +=+ 5.5,6.5 +=+ 10.5]
 --
--- Now we can see that there are an infinite number of values between 5.5 and 6.5 and thus no such 
+-- Now we can see that there are an infinite number of values between 5.5 and 6.5 and thus no such
 -- join between the two ranges could occur.
 --
 -- This function, joinRanges, provides the missing piece that you would expect:

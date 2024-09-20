@@ -1,6 +1,6 @@
-module Data.Range.Operators where
+module Data.Range.Typed.Operators where
 
-import Data.Range.Data
+import Data.Range.Typed.Data
 
 -- | Mathematically equivalent to @[x, y]@.
 --

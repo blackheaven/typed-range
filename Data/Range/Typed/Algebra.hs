@@ -1,5 +1,6 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Safe #-}
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 
 -- | Internally the range library converts your ranges into an internal
 -- efficient representation of multiple ranges. When you do multiple unions and
@@ -25,24 +26,28 @@
 -- (0.01 secs, 597,656 bytes)
 --
 -- You can also use this module to evaluate range predicates.
---
---
-module Data.Range.Algebra
-  ( RangeExpr
+module Data.Range.Typed.Algebra
+  ( RangeExpr,
+
     -- ** Operations
-  , const, invert, union, intersection, difference
+    const,
+    invert,
+    union,
+    intersection,
+    difference,
+
     -- ** Evaluation
-  , Algebra, RangeAlgebra(..)
-  ) where
-
-import Prelude hiding (const)
-
-import Data.Range.Data
-import Data.Range.Algebra.Internal
-import Data.Range.Algebra.Range
-import Data.Range.Algebra.Predicate
+    Algebra,
+    RangeAlgebra (..),
+  )
+where
 
 import Control.Monad.Free
+import Data.Range.Typed.Algebra.Internal
+import Data.Range.Typed.Algebra.Predicate
+import Data.Range.Typed.Algebra.Range
+import Data.Range.Typed.Data
+import Prelude hiding (const)
 
 -- | Lifts the input value as a constant into an expression.
 const :: a -> RangeExpr a

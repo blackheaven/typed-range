@@ -6,33 +6,37 @@
 --
 -- One of the main advantages of this module is that it implements 'Monoid' for 'Ranges' which lets you
 -- write code like:
--- 
-module Data.Ranges (
-  -- * Range creation
-  (+=+),
-  (+=*),
-  (*=+),
-  (*=*),
-  lbi,
-  lbe,
-  ubi,
-  ube,
-  inf,
-  -- * Comparison functions
-  inRanges,
-  aboveRanges,
-  belowRanges,
-  -- * Set operations
-  union,
-  intersection,
-  difference,
-  invert,
-  -- * Enumerable methods
-  fromRanges,
-  joinRanges,
-  -- * Data types
-  Ranges(..)
-) where
+module Data.Range.Types.Ranges
+  ( -- * Range creation
+    (+=+),
+    (+=*),
+    (*=+),
+    (*=*),
+    lbi,
+    lbe,
+    ubi,
+    ube,
+    inf,
+
+    -- * Comparison functions
+    inRanges,
+    aboveRanges,
+    belowRanges,
+
+    -- * Set operations
+    union,
+    intersection,
+    difference,
+    invert,
+
+    -- * Enumerable methods
+    fromRanges,
+    joinRanges,
+
+    -- * Data types
+    Ranges (..),
+  )
+where
 
 import Data.Semigroup
 
@@ -40,24 +44,24 @@ import Data.Semigroup
 import Control.Applicative
 #endif
 
-import qualified Data.Range as R
+import qualified Data.Range.Types as R
 
 -- TODO Can we make this use a Range Algebra internally ?
-newtype Ranges a = Ranges { unRanges :: [R.Range a] }
+newtype Ranges a = Ranges {unRanges :: [R.Range a]}
 
-instance Show a => Show (Ranges a) where
-   showsPrec i (Ranges xs) = ((++) "Ranges ") . showsPrec i xs
+instance (Show a) => Show (Ranges a) where
+  showsPrec i (Ranges xs) = ((++) "Ranges ") . showsPrec i xs
 
-instance Ord a => Semigroup (Ranges a) where
-   (<>) (Ranges a) (Ranges b) = Ranges . R.mergeRanges $ a ++ b
+instance (Ord a) => Semigroup (Ranges a) where
+  (<>) (Ranges a) (Ranges b) = Ranges . R.mergeRanges $ a ++ b
 
-instance Ord a => Monoid (Ranges a) where
-   mempty = Ranges []
-   mappend (Ranges a) (Ranges b) = Ranges . R.mergeRanges $ a ++ b
-   mconcat = Ranges . R.mergeRanges . concat . fmap unRanges
+instance (Ord a) => Monoid (Ranges a) where
+  mempty = Ranges []
+  mappend (Ranges a) (Ranges b) = Ranges . R.mergeRanges $ a ++ b
+  mconcat = Ranges . R.mergeRanges . concat . fmap unRanges
 
 instance Functor Ranges where
-   fmap f (Ranges xs) = Ranges . fmap (fmap f) $ xs
+  fmap f (Ranges xs) = Ranges . fmap (fmap f) $ xs
 
 (+=+) :: a -> a -> Ranges a
 (+=+) a b = Ranges . pure $ (R.+=+) a b
