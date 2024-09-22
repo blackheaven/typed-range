@@ -1,7 +1,6 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE Safe #-}
 
 module Data.Range.Typed.Algebra.Internal where
 
@@ -29,17 +28,17 @@ instance Show1 RangeExprF where
     \case
       Invert x -> showString "not " . showParen True (showPrec (p + 1) x)
       Union a b ->
-        showPrec (p + 1) a .
-        showString " \\/ " .
-        showPrec (p + 1) b
+        showPrec (p + 1) a
+          . showString " \\/ "
+          . showPrec (p + 1) b
       Intersection a b ->
-        showPrec (p + 1) a .
-        showString " /\\ " .
-        showPrec (p + 1) b
+        showPrec (p + 1) a
+          . showString " /\\ "
+          . showPrec (p + 1) b
       Difference a b ->
-        showPrec (p + 1) a .
-        showString " - " .
-        showPrec (p + 1) b
+        showPrec (p + 1) a
+          . showString " - "
+          . showPrec (p + 1) b
 
 newtype RangeExpr a = RangeExpr {getFree :: Free RangeExprF a}
   deriving (Show, Eq, Functor)

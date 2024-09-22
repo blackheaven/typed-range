@@ -5,5 +5,5 @@ import Data.Range.Typed.Algebra.Internal
 import Data.Range.Typed.Data
 import Data.Range.Typed.RangeInternal (exportRangeMerge, loadRanges)
 
-rangeAlgebra :: (Ord a) => Algebra RangeExprF [Range a]
+rangeAlgebra :: (Ord a) => Algebra RangeExprF [AnyRange a]
 rangeAlgebra = exportRangeMerge . iter rangeMergeAlgebra . Free . fmap (Pure . loadRanges)

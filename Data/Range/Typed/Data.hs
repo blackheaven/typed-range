@@ -1,69 +1,172 @@
-{-# LANGUAGE Safe #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | The Data module for common data types within the code.
 module Data.Range.Typed.Data where
 
+import Data.Kind
+import Optics.Getter (view)
+import Optics.Lens (Lens', lens)
+import Optics.Setter (set)
+
 data OverlapType = Separate | Overlap | Adjoin
   deriving (Eq, Show)
 
--- | Represents a type of boundary.
-data BoundType
-  = -- | The value at the boundary should be included in the bound.
-    Inclusive
-  | -- | The value at the boundary should be excluded in the bound.
-    Exclusive
-  deriving (Eq, Show)
+-- | Represents a bound, with exclusiveness.
+data Bound a
+  = -- | The value should be included in the bound.
+    InclusiveBound a
+  | -- | The value should be excluded in the bound.
+    ExclusiveBound a
+  deriving stock (Eq, Show, Functor)
 
--- | Represents a bound at a particular value with a 'BoundType'.
--- There is no implicit understanding if this is a lower or upper bound, it could be either.
-data Bound a = Bound
-  { -- | The value at the edge of this bound.
-    boundValue :: a,
-    -- | The type of bound. Should be 'Inclusive' or 'Exclusive'.
-    boundType :: BoundType
-  }
-  deriving (Eq, Show)
+-- | All kinds of ranges.
+data Range (hasLowerBound :: Bool) (hasUpperBound :: Bool) (a :: Type) where
+  -- | A single element. It is equivalent to @SpanRange (InclusiveBound a) (InclusiveBound a)@.
+  SingletonRange :: a -> Range 'True 'True a
+  -- | A span of elements. Make sure lower bound <= upper bound.
+  SpanRange :: Bound a -> Bound a -> Range 'True 'True a
+  -- | A range with a finite lower bound and an infinite upper bound.
+  LowerBoundRange :: Bound a -> Range 'True 'False a
+  -- | A range with an infinite lower bound and a finite upper bound.
+  UpperBoundRange :: Bound a -> Range 'False 'True a
+  -- | An infinite range.
+  InfiniteRange :: Range 'False 'False a
+  -- | An empty range.
+  EmptyRange :: Range 'False 'False a
 
-instance Functor Bound where
-  fmap f (Bound v vType) = Bound (f v) vType
+deriving stock instance (Eq a) => Eq (Range l r a)
 
--- TODO can we implement Monoid for Range a with the addition of an empty?
--- Or maybe we can implement Monoid for a list of ranges...
+deriving stock instance Functor (Range l r)
 
--- | The Range Data structure; it is capable of representing any type of range. This is
--- the primary data structure in this library. Everything should be possible to convert
--- back into this datatype. All ranges in this structure are inclusively bound.
-data Range a
-  = -- | Represents a single element as a range. @SingletonRange a@ is equivalent to @SpanRange (Bound a Inclusive) (Bound a Inclusive)@.
-    SingletonRange a
-  | -- | Represents a bounded span of elements. The first argument is expected to be less than or equal to the second argument.
-    SpanRange (Bound a) (Bound a)
-  | -- | Represents a range with a finite lower bound and an infinite upper bound.
-    LowerBoundRange (Bound a)
-  | -- | Represents a range with an infinite lower bound and a finite upper bound.
-    UpperBoundRange (Bound a)
-  | -- | Represents an infinite range over all values.
-    InfiniteRange
-  deriving (Eq)
+instance (Show a) => Show (Range r l a) where
+  showsPrec i =
+    \case
+      SingletonRange a -> (<>) "singleton " . showsPrec i a
+      SpanRange lBound rBound ->
+        let s l symbol r = showsPrec i l . (<>) symbol . showsPrec i r
+         in case (lBound, rBound) of
+              (InclusiveBound l, InclusiveBound r) -> s l " +=+ " r
+              (InclusiveBound l, ExclusiveBound r) -> s l " +=* " r
+              (ExclusiveBound l, InclusiveBound r) -> s l " *=+ " r
+              (ExclusiveBound l, ExclusiveBound r) -> s l " *=* " r
+      (LowerBoundRange (InclusiveBound a)) -> (<>) "lbi " . showsPrec i a
+      (LowerBoundRange (ExclusiveBound a)) -> (<>) "lbe " . showsPrec i a
+      (UpperBoundRange (InclusiveBound a)) -> (<>) "ubi " . showsPrec i a
+      (UpperBoundRange (ExclusiveBound a)) -> (<>) "ube " . showsPrec i a
+      InfiniteRange -> (<>) "inf"
+      EmptyRange -> (<>) "empty"
 
-instance Functor Range where
-  fmap f (SingletonRange x) = SingletonRange . f $ x
-  fmap f (SpanRange x y) = SpanRange (fmap f x) (fmap f y)
-  fmap f (LowerBoundRange x) = LowerBoundRange (fmap f x)
-  fmap f (UpperBoundRange x) = UpperBoundRange (fmap f x)
-  fmap _ InfiniteRange = InfiniteRange
+type AnyRange = AnyRangeFor AnyRangeConstraint
 
-instance (Show a) => Show (Range a) where
-  showsPrec i (SingletonRange a) = ((++) "SingletonRange ") . showsPrec i a
-  showsPrec i (SpanRange (Bound l lType) (Bound r rType)) =
-    showsPrec i l . showSymbol lType rType . showsPrec i r
+class AnyRangeConstraint (range :: Type -> Type)
+
+instance AnyRangeConstraint (Range l r)
+
+data AnyRangeFor (c :: (Type -> Type) -> Constraint) a
+  = forall hasLowerBound hasUpperBound.
+    (c (Range hasLowerBound hasUpperBound)) =>
+    AnyRangeFor (Range hasLowerBound hasUpperBound a)
+
+instance (Show a) => Show (AnyRangeFor c a) where
+  showsPrec i (AnyRangeFor range) =
+    showsPrec i range
+
+instance (Eq a) => Eq (AnyRangeFor c a) where
+  AnyRangeFor lower == AnyRangeFor upper =
+    case (lower, upper) of
+      (SingletonRange l, SingletonRange r) -> r == l
+      (SpanRange ll lr, SpanRange rl rr) -> rl == ll && lr == rr
+      (LowerBoundRange l, LowerBoundRange r) -> r == l
+      (UpperBoundRange l, UpperBoundRange r) -> r == l
+      (InfiniteRange, InfiniteRange) -> True
+      (EmptyRange, EmptyRange) -> True
+      _ -> False
+
+instance Functor (AnyRangeFor c) where
+  fmap i (AnyRangeFor range) =
+    AnyRangeFor $ fmap i range
+
+-- | `Range` has a lower bound
+class WithLowerBound range where
+  -- | Changing `Range`'s lower bound (preserving the constructor)
+  lowerBound :: Lens' (range a) (Bound a)
+
+instance WithLowerBound (Range 'True hasUpperBound) where
+  lowerBound = lens g s
     where
-      showSymbol Inclusive Inclusive = (++) " +=+ "
-      showSymbol Inclusive Exclusive = (++) " +=* "
-      showSymbol Exclusive Inclusive = (++) " *=+ "
-      showSymbol Exclusive Exclusive = (++) " *=* "
-  showsPrec i (LowerBoundRange (Bound a Inclusive)) = ((++) "lbi ") . (showsPrec i a)
-  showsPrec i (LowerBoundRange (Bound a Exclusive)) = ((++) "lbe ") . (showsPrec i a)
-  showsPrec i (UpperBoundRange (Bound a Inclusive)) = ((++) "ubi ") . (showsPrec i a)
-  showsPrec i (UpperBoundRange (Bound a Exclusive)) = ((++) "ube ") . (showsPrec i a)
-  showsPrec _ (InfiniteRange) = (++) "inf"
+      g :: Range 'True hasUpperBound a -> Bound a
+      g =
+        \case
+          SingletonRange a -> InclusiveBound a
+          SpanRange x _ -> x
+          LowerBoundRange x -> x
+      s :: Range 'True hasUpperBound a -> Bound a -> Range 'True hasUpperBound a
+      s range y =
+        case range of
+          SingletonRange _ ->
+            SingletonRange $
+              case y of
+                InclusiveBound y' -> y'
+                ExclusiveBound y' -> y'
+          SpanRange _ x -> SpanRange y x
+          LowerBoundRange _ -> LowerBoundRange y
+
+instance WithLowerBound (AnyRangeFor WithLowerBound) where
+  lowerBound =
+    lens
+      (\(AnyRangeFor range) -> view lowerBound range)
+      (\(AnyRangeFor range) bound -> AnyRangeFor $ set lowerBound bound range)
+
+instance WithLowerBound (AnyRangeFor WithAllBounds) where
+  lowerBound =
+    lens
+      (\(AnyRangeFor range) -> view lowerBound range)
+      (\(AnyRangeFor range) bound -> AnyRangeFor $ set lowerBound bound range)
+
+-- | `Range` has a upper bound
+class WithUpperBound range where
+  -- | Changing `Range`'s upper bound (preserving the constructor)
+  upperBound :: Lens' (range a) (Bound a)
+
+instance WithUpperBound (Range hasLowerBound 'True) where
+  upperBound = lens g s
+    where
+      g :: Range hasLowerBound 'True a -> Bound a
+      g =
+        \case
+          SingletonRange a -> InclusiveBound a
+          SpanRange x _ -> x
+          UpperBoundRange x -> x
+      s :: Range hasLowerBound 'True a -> Bound a -> Range hasLowerBound 'True a
+      s range y =
+        case range of
+          SingletonRange _ ->
+            SingletonRange $
+              case y of
+                InclusiveBound y' -> y'
+                ExclusiveBound y' -> y'
+          SpanRange x _ -> SpanRange x y
+          UpperBoundRange _ -> UpperBoundRange y
+
+instance WithUpperBound (AnyRangeFor WithUpperBound) where
+  upperBound =
+    lens
+      (\(AnyRangeFor range) -> view upperBound range)
+      (\(AnyRangeFor range) bound -> AnyRangeFor $ set upperBound bound range)
+
+instance WithUpperBound (AnyRangeFor WithAllBounds) where
+  upperBound =
+    lens
+      (\(AnyRangeFor range) -> view upperBound range)
+      (\(AnyRangeFor range) bound -> AnyRangeFor $ set upperBound bound range)
+
+class (WithLowerBound a, WithUpperBound a) => WithAllBounds (a :: Type -> Type)
+
+instance (WithLowerBound a, WithUpperBound a) => WithAllBounds a

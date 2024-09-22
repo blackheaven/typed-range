@@ -25,8 +25,8 @@ putStatus result test = putStrLn $ "[" ++ (show result) ++ "] " ++ test
 main = do
     inRanges [anyRange $ SingletonRange 4]   4                         `putStatus` "Singletons Match"
     inRanges [anyRange $ 0 +=+ 10] 7                                   `putStatus` "Value in Range"
-    inRanges [anyRange $ LowerBoundRange (Bound 80 Inclusive)] 12345   `putStatus` "Value in Long Range"
-    inRanges [anyRange $ InfiniteRange]      8287423                   `putStatus` "Value in Infinite Range"
+    inRanges [anyRange $ LowerBoundRange (InclusiveBound 80)] 12345    `putStatus` "Value in Long Range"
+    inRanges [anyRange InfiniteRange] 8287423                          `putStatus` "Value in Infinite Range"
     inRanges [anyRange $ lbi 50, anyRange $ 1 +=+ 30] 44               `putStatus` "NOT in Composite Range (expect false)"
-    inRanges [anyRange $ EmptyRange]      8287423                      `putStatus` "NOT in Infinite Range (expect false)"
+    inRanges [anyRange $ EmptyRange] 8287423                           `putStatus` "NOT in Infinite Range (expect false)"
 ```

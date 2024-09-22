@@ -1,4 +1,6 @@
-{-# LANGUAGE Safe #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | This module provides a simple api to access range functionality. It provides standard
 -- set operations on ranges, the ability to merge ranges together and, importantly, the ability
@@ -26,7 +28,7 @@
 --
 -- Using the data types directly, you could write this as:
 --
--- @SpanRange (Bound 1 Inclusive) (Bound 5 Exclusive)@
+-- @SpanRange (InclusiveBound 1) (ExclusiveBound 5)@
 --
 -- This is overly verbose, as a result, this library contains operators and functions for writing this much
 -- more succinctly. The above example could be written as:
@@ -38,7 +40,7 @@
 --
 -- The 'Show' instance of the 'Range' class will actually output these simplified helper functions, for example:
 --
--- >>> [SingletonRange 5, SpanRange (Bound 1 Inclusive) (Bound 5 Exclusive), InfiniteRange]
+-- >>> [anyRange $ SingletonRange 5, anyRange $ SpanRange (InclusiveBound 1) (ExclusiveBound 5), anyRange InfiniteRange]
 -- [SingletonRange 5,1 +=* 5,inf]
 --
 -- There are 'lbi', 'lbe', 'ubi' and 'ube' functions to create lower bound inclusive, lower bound exclusive, upper
@@ -55,12 +57,12 @@
 -- For example, if we had the range made up of the inclusive unions of @[5, 10]@ and @[20, 30]@ and @[25, Infinity)@
 -- then we could instantiate, and simplify, such a range like this:
 --
--- >>> mergeRanges [(5 :: Integer) +=+ 10, 20 +=+ 30, lbi 25]
+-- >>> mergeRanges [anyRange (5 :: Integer) +=+ 10, anyRange $ 20 +=+ 30, anyRange $ lbi 25]
 -- [5 +=+ 10,lbi 20]
 --
 -- You can then test if elements are within this range:
 --
--- >>> let ranges = mergeRanges [(5 :: Integer) +=+ 10, 20 +=+ 30, lbi 25]
+-- >>> let ranges = mergeRanges [anyRange (5 :: Integer) +=+ 10, anyRange $ 20 +=+ 30, anyRange $ lbi 25]
 -- >>> inRanges ranges 7
 -- True
 -- >>> inRanges ranges 50
@@ -79,7 +81,7 @@
 --
 -- >>> :m + Data.Version
 -- >>> let v x = Version x []
--- >>> let ranges = mergeRanges [v [1, 1, 0] +=+ v [1,2,1], v [1,3] +=* v [1,4], v [1,4] +=* v [1,4,2]]
+-- >>> let ranges = mergeRanges [anyRange $ v [1, 1, 0] +=+ v [1,2,1], anyRange $ v [1,3] +=* v [1,4], anyRange $ v [1,4] +=* v [1,4,2]]
 -- >>> inRanges ranges (v [1,0])
 -- False
 -- >>> inRanges ranges (v [1,5])
@@ -104,6 +106,41 @@ module Data.Range.Typed
     ubi,
     ube,
     inf,
+    empty,
+    singleton,
+
+    -- * `AnyRange`-related
+    anyRange,
+    anyRangeFor,
+    withRange,
+
+    -- * `Bound`-related
+    compareLower,
+    compareHigher,
+    compareLowerIntersection,
+    compareHigherIntersection,
+    compareUpperToLower,
+    minBounds,
+    maxBounds,
+    minBoundsIntersection,
+    maxBoundsIntersection,
+    insertionSort,
+    invertBound,
+    isEmptySpan,
+    removeEmptySpans,
+    boundsOverlapType,
+    orOverlapType,
+    pointJoinType,
+    boundCmp,
+    boundIsBetween,
+    singletonInSpan,
+    againstLowerBound,
+    againstUpperBound,
+    lowestValueInLowerBound,
+    highestValueInUpperBound,
+    boundValue,
+    boundValueNormalized,
+    boundIsInclusive,
 
     -- * Comparison functions
     inRange,
@@ -128,15 +165,20 @@ module Data.Range.Typed
 
     -- * Data types
     Bound (..),
-    BoundType (..),
+    AnyRangeFor (..),
     Range (..),
+    AnyRange,
+    AnyRangeConstraint,
+    WithLowerBound (..),
+    WithUpperBound (..),
+    WithAllBounds,
   )
 where
 
 import qualified Data.Range.Typed.Algebra as Alg
 import Data.Range.Typed.Data
 import Data.Range.Typed.Operators
-import Data.Range.Typed.RangeInternal (exportRangeMerge, joinRM, loadRanges)
+import Data.Range.Typed.RangeInternal
 import Data.Range.Typed.Util
 
 -- | Performs a set union between the two input ranges and returns the resultant set of
@@ -144,10 +186,10 @@ import Data.Range.Typed.Util
 --
 -- For example:
 --
--- >>> union [1 +=+ 10] [5 +=+ (15 :: Integer)]
+-- >>> union [anyRange $ 1 +=+ 10] [anyRange $ 5 +=+ (15 :: Integer)]
 -- [1 +=+ 15]
 -- (0.00 secs, 587,152 bytes)
-union :: (Ord a) => [Range a] -> [Range a] -> [Range a]
+union :: (Ord a) => [AnyRange a] -> [AnyRange a] -> [AnyRange a]
 union a b = Alg.eval $ Alg.union (Alg.const a) (Alg.const b)
 {-# INLINE union #-}
 
@@ -156,10 +198,10 @@ union a b = Alg.eval $ Alg.union (Alg.const a) (Alg.const b)
 --
 -- For example:
 --
--- >>> intersection [1 +=* 10] [5 +=+ (15 :: Integer)]
+-- >>> intersection [anyRange $ 1 +=* 10] [anyRange $ 5 +=+ (15 :: Integer)]
 -- [5 +=* 10]
 -- (0.00 secs, 584,616 bytes)
-intersection :: (Ord a) => [Range a] -> [Range a] -> [Range a]
+intersection :: (Ord a) => [AnyRange a] -> [AnyRange a] -> [AnyRange a]
 intersection a b = Alg.eval $ Alg.intersection (Alg.const a) (Alg.const b)
 {-# INLINE intersection #-}
 
@@ -168,10 +210,10 @@ intersection a b = Alg.eval $ Alg.intersection (Alg.const a) (Alg.const b)
 --
 -- For example:
 --
--- >>> difference [1 +=+ 10] [5 +=+ (15 :: Integer)]
+-- >>> difference [anyRange $ 1 +=+ 10] [anyRange $ 5 +=+ (15 :: Integer)]
 -- [1 +=* 5]
 -- (0.00 secs, 590,424 bytes)
-difference :: (Ord a) => [Range a] -> [Range a] -> [Range a]
+difference :: (Ord a) => [AnyRange a] -> [AnyRange a] -> [AnyRange a]
 difference a b = Alg.eval $ Alg.difference (Alg.const a) (Alg.const b)
 {-# INLINE difference #-}
 
@@ -179,10 +221,10 @@ difference a b = Alg.eval $ Alg.difference (Alg.const a) (Alg.const b)
 --
 -- For example:
 --
--- >>> invert [1 +=* 10, 15 *=+ (20 :: Integer)]
+-- >>> invert [anyRange $ 1 +=* 10, anyRange $ 15 *=+ (20 :: Integer)]
 -- [ube 1,10 +=+ 15,lbe 20]
 -- (0.00 secs, 623,456 bytes)
-invert :: (Ord a) => [Range a] -> [Range a]
+invert :: (Ord a) => [AnyRange a] -> [AnyRange a]
 invert = Alg.eval . Alg.invert . Alg.const
 {-# INLINE invert #-}
 
@@ -201,13 +243,13 @@ invert = Alg.eval . Alg.invert . Alg.const
 -- The last case of these three is the primary "gotcha" of this method. With @[1, 5)@ and @[5, 7]@ there is no
 -- value that exists within both ranges. Therefore, technically, the ranges do not overlap. If you expected
 -- this to return True then it is likely that you would prefer to use 'rangesAdjoin' instead.
-rangesOverlap :: (Ord a) => Range a -> Range a -> Bool
-rangesOverlap a b = Overlap == (rangesOverlapType a b)
+rangesOverlap :: (Ord a) => Range l0 h0 a -> Range l1 h1 a -> Bool
+rangesOverlap a b = Overlap == rangesOverlapType a b
 
-rangesOverlapType :: (Ord a) => Range a -> Range a -> OverlapType
+rangesOverlapType :: (Ord a) => Range l0 h0 a -> Range l1 h1 a -> OverlapType
 rangesOverlapType (SingletonRange a) x = rangesOverlapType (SpanRange b b) x
   where
-    b = Bound a Inclusive
+    b = InclusiveBound a
 rangesOverlapType (SpanRange x y) (SpanRange a b) = boundsOverlapType (x, y) (a, b)
 rangesOverlapType (SpanRange _ y) (LowerBoundRange lower) = againstLowerBound y lower
 rangesOverlapType (SpanRange x _) (UpperBoundRange upper) = againstUpperBound x upper
@@ -215,6 +257,8 @@ rangesOverlapType (LowerBoundRange _) (LowerBoundRange _) = Overlap
 rangesOverlapType (LowerBoundRange lower) (UpperBoundRange upper) = againstUpperBound lower upper
 rangesOverlapType (UpperBoundRange _) (UpperBoundRange _) = Overlap
 rangesOverlapType InfiniteRange _ = Overlap
+rangesOverlapType EmptyRange EmptyRange = Overlap
+rangesOverlapType EmptyRange _ = Separate
 rangesOverlapType a b = rangesOverlapType b a
 
 -- | A check to see if two ranges overlap or adjoin. The ranges adjoin if no values exist between them.
@@ -232,8 +276,8 @@ rangesOverlapType a b = rangesOverlapType b a
 -- The last case of these three is the primary "gotcha" of this method. With @[1, 5)@ and @[5, 7]@ there
 -- exist no values between them. Therefore the ranges adjoin. If you expected this to return False then
 -- it is likely that you would prefer to use 'rangesOverlap' instead.
-rangesAdjoin :: (Ord a) => Range a -> Range a -> Bool
-rangesAdjoin a b = Adjoin == (rangesOverlapType a b)
+rangesAdjoin :: (Ord a) => Range l0 h0 a -> Range l1 h1 a -> Bool
+rangesAdjoin a b = Adjoin == rangesOverlapType a b
 
 -- | Given a range and a value it will tell you wether or not the value is in the range.
 -- Remember that all ranges are inclusive.
@@ -253,17 +297,18 @@ rangesAdjoin a b = Adjoin == (rangesOverlapType a b)
 --
 -- As you can see, this function is significantly more performant, in both speed and memory,
 -- than using the elem function.
-inRange :: (Ord a) => Range a -> a -> Bool
+inRange :: (Ord a) => Range l h a -> a -> Bool
 inRange (SingletonRange a) value = value == a
-inRange (SpanRange x y) value = Overlap == boundIsBetween (Bound value Inclusive) (x, y)
-inRange (LowerBoundRange lower) value = Overlap == againstLowerBound (Bound value Inclusive) lower
-inRange (UpperBoundRange upper) value = Overlap == againstUpperBound (Bound value Inclusive) upper
+inRange (SpanRange x y) value = Overlap == boundIsBetween (InclusiveBound value) (x, y)
+inRange (LowerBoundRange lower) value = Overlap == againstLowerBound (InclusiveBound value) lower
+inRange (UpperBoundRange upper) value = Overlap == againstUpperBound (InclusiveBound value) upper
 inRange InfiniteRange _ = True
+inRange EmptyRange _ = False
 
 -- | Given a list of ranges this function tells you if a value is in any of those ranges.
 -- This is especially useful for more complex ranges.
-inRanges :: (Ord a) => [Range a] -> a -> Bool
-inRanges rs a = any (`inRange` a) rs
+inRanges :: (Ord a) => [AnyRange a] -> a -> Bool
+inRanges rs a = any (withRange (`inRange` a)) rs
 
 -- | Checks if the value provided is above (or greater than) the biggest value in
 -- the given range.
@@ -285,16 +330,17 @@ inRanges rs a = any (`inRange` a) rs
 -- True
 -- >>> aboveRange inf (6 :: Integer)
 -- False
-aboveRange :: (Ord a) => Range a -> a -> Bool
+aboveRange :: (Ord a) => Range l h a -> a -> Bool
 aboveRange (SingletonRange a) value = value > a
-aboveRange (SpanRange _ y) value = Overlap == againstLowerBound (Bound value Inclusive) (invertBound y)
+aboveRange (SpanRange _ y) value = Overlap == againstLowerBound (InclusiveBound value) (invertBound y)
 aboveRange (LowerBoundRange _) _ = False
-aboveRange (UpperBoundRange upper) value = Overlap == againstLowerBound (Bound value Inclusive) (invertBound upper)
+aboveRange (UpperBoundRange upper) value = Overlap == againstLowerBound (InclusiveBound value) (invertBound upper)
 aboveRange InfiniteRange _ = False
+aboveRange EmptyRange _ = True
 
 -- | Checks if the value provided is above all of the ranges provided.
-aboveRanges :: (Ord a) => [Range a] -> a -> Bool
-aboveRanges rs a = all (`aboveRange` a) rs
+aboveRanges :: (Ord a) => [AnyRange a] -> a -> Bool
+aboveRanges rs a = all (withRange (`aboveRange` a)) rs
 
 -- | Checks if the value provided is below (or less than) the smallest value in
 -- the given range.
@@ -316,21 +362,22 @@ aboveRanges rs a = all (`aboveRange` a) rs
 -- False
 -- >>> belowRange inf (6 :: Integer)
 -- False
-belowRange :: (Ord a) => Range a -> a -> Bool
+belowRange :: (Ord a) => Range l h a -> a -> Bool
 belowRange (SingletonRange a) value = value < a
-belowRange (SpanRange x _) value = Overlap == againstUpperBound (Bound value Inclusive) (invertBound x)
-belowRange (LowerBoundRange lower) value = Overlap == againstUpperBound (Bound value Inclusive) (invertBound lower)
+belowRange (SpanRange x _) value = Overlap == againstUpperBound (InclusiveBound value) (invertBound x)
+belowRange (LowerBoundRange lower) value = Overlap == againstUpperBound (InclusiveBound value) (invertBound lower)
 belowRange (UpperBoundRange _) _ = False
 belowRange InfiniteRange _ = False
+belowRange EmptyRange _ = True
 
 -- | Checks if the value provided is below all of the ranges provided.
-belowRanges :: (Ord a) => [Range a] -> a -> Bool
-belowRanges rs a = all (`belowRange` a) rs
+belowRanges :: (Ord a) => [AnyRange a] -> a -> Bool
+belowRanges rs a = all (withRange (`belowRange` a)) rs
 
 -- | An array of ranges may have overlaps; this function will collapse that array into as few
 -- Ranges as possible. For example:
 --
--- >>> mergeRanges [lbi 12, 1 +=+ 10, 5 +=+ (15 :: Integer)]
+-- >>> mergeRanges [anyRange $ lbi 12, anyRange $ 1 +=+ 10, anyRange $ 5 +=+ (15 :: Integer)]
 -- [lbi 1]
 -- (0.01 secs, 588,968 bytes)
 --
@@ -351,7 +398,7 @@ belowRanges rs a = all (`belowRange` a) rs
 -- @
 -- mergeRanges . union []
 -- @
-mergeRanges :: (Ord a) => [Range a] -> [Range a]
+mergeRanges :: (Ord a) => [AnyRange a] -> [AnyRange a]
 mergeRanges = Alg.eval . Alg.union (Alg.const []) . Alg.const
 {-# INLINE mergeRanges #-}
 
@@ -378,32 +425,35 @@ mergeRanges = Alg.eval . Alg.union (Alg.const []) . Alg.const
 --
 -- A simple span:
 --
--- >>> take 5 . fromRanges $ [1 +=+ 10 :: Range Integer, 20 +=+ 30]
+-- >>> take 5 . fromRanges $ [anyRange $ 1 +=+ (10 :: Integer), anyRange $ 20 +=+ 30]
 -- [1,20,2,21,3]
 -- (0.01 secs, 566,016 bytes)
 --
 -- An infinite range:
 --
--- >>> take 5 . fromRanges $ [inf :: Range Integer]
+-- >>> take 5 . fromRanges $ [anyRange (inf :: Range Integer)]
 -- [0,1,-1,2,-2]
 -- (0.00 secs, 566,752 bytes)
-fromRanges :: (Ord a, Enum a) => [Range a] -> [a]
-fromRanges = takeEvenly . fmap fromRange . mergeRanges
+fromRanges :: forall a. (Ord a, Enum a) => [AnyRange a] -> [a]
+fromRanges = takeEvenly . fmap (withRange fromRange) . mergeRanges
   where
-    fromRange range = case range of
-      SingletonRange x -> [x]
-      SpanRange (Bound a aType) (Bound b bType) -> [(if aType == Inclusive then a else succ a) .. (if bType == Inclusive then b else pred b)]
-      LowerBoundRange (Bound x xType) -> iterate succ (if xType == Inclusive then x else succ x)
-      UpperBoundRange (Bound x xType) -> iterate pred (if xType == Inclusive then x else pred x)
-      InfiniteRange -> zero : takeEvenly [tail $ iterate succ zero, tail $ iterate pred zero]
-        where
-          zero = toEnum 0
+    fromRange :: Range l h a -> [a]
+    fromRange =
+      \case
+        EmptyRange -> []
+        SingletonRange x -> [x]
+        SpanRange a b -> [boundValueNormalized succ a .. boundValueNormalized pred b]
+        LowerBoundRange x -> iterate succ $ boundValueNormalized succ x
+        UpperBoundRange x -> iterate pred $ boundValueNormalized pred x
+        InfiniteRange -> zero : takeEvenly [tail $ iterate succ zero, tail $ iterate pred zero]
+          where
+            zero = toEnum 0
 
 -- | Joins together ranges that we only know can be joined because of the 'Enum' class.
 --
 -- To make the purpose of this method easier to understand, let's run throuh a simple example:
 --
--- >>> mergeRanges [1 +=+ 5, 6 +=+ 10] :: [Range Integer]
+-- >>> mergeRanges [anyRange $ 1 +=+ 5, anyRange $ 6 +=+ 10] :: [AnyRange Integer]
 -- [1 +=+ 5,6 +=+ 10]
 --
 -- In this example, you know that the values are all of the type 'Integer'. Because of this, you
@@ -411,7 +461,7 @@ fromRanges = takeEvenly . fmap fromRange . mergeRanges
 -- should "just know" that it can merge these together; but it can't because it does not have the
 -- required constraints. This becomes more obvious if you modify the example to use 'Double' instead:
 --
--- >>> mergeRanges [1.5 +=+ 5.5, 6.5 +=+ 10.5] :: [Range Double]
+-- >>> mergeRanges [anyRange $ 1.5 +=+ 5.5, anyRange $ 6.5 +=+ 10.5] :: [AnyRange Double]
 -- [1.5 +=+ 5.5,6.5 +=+ 10.5]
 --
 -- Now we can see that there are an infinite number of values between 5.5 and 6.5 and thus no such
@@ -419,10 +469,10 @@ fromRanges = takeEvenly . fmap fromRange . mergeRanges
 --
 -- This function, joinRanges, provides the missing piece that you would expect:
 --
--- >>> joinRanges $ mergeRanges [1 +=+ 5, 6 +=+ 10] :: [Range Integer]
+-- >>> joinRanges $ mergeRanges [anyRange $ 1 +=+ 5, anyRange $ 6 +=+ 10] :: [AnyRange Integer]
 -- [1 +=+ 10]
 --
 -- You can use this method to ensure that all ranges for whom the value implements 'Enum' can be
 -- compressed to their smallest representation.
-joinRanges :: (Ord a, Enum a) => [Range a] -> [Range a]
+joinRanges :: (Ord a, Enum a) => [AnyRange a] -> [AnyRange a]
 joinRanges = exportRangeMerge . joinRM . loadRanges

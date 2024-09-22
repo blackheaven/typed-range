@@ -1,5 +1,3 @@
-{-# LANGUAGE Safe #-}
-
 -- This module contains every function that purely performs operations on spans.
 module Data.Range.Typed.Spans where
 
@@ -11,15 +9,15 @@ insertionSortSpans :: (Ord a) => [(Bound a, Bound a)] -> [(Bound a, Bound a)] ->
 insertionSortSpans = insertionSort (\a b -> compareLower (fst a) (fst b))
 
 spanCmp :: (Ord a) => (Bound a, Bound a) -> (Bound a, Bound a) -> Ordering
-spanCmp x@(_, Bound xHighValue _) y@(Bound yLowValue _, _) =
+spanCmp x@(_, xHighValue) y@(yLowValue, _) =
   if boundsOverlapType x y /= Separate
     then EQ
-    else if xHighValue <= yLowValue then LT else GT
+    else if boundValue xHighValue <= boundValue yLowValue then LT else GT
 
 intersectSpans :: (Ord a) => [(Bound a, Bound a)] -> [(Bound a, Bound a)] -> [(Bound a, Bound a)]
-intersectSpans (x@(xlow, xup@(Bound xUpValue _)) : xs) (y@(ylow, yup@(Bound yUpValue _)) : ys) =
+intersectSpans (x@(xlow, xup) : xs) (y@(ylow, yup) : ys) =
   case spanCmp x y of
-    EQ -> if (not . isEmptySpan $ intersectedSpan) then intersectedSpan : equalNext else equalNext
+    EQ -> if not (isEmptySpan intersectedSpan) then intersectedSpan : equalNext else equalNext
     LT -> intersectSpans xs (y : ys)
     GT -> intersectSpans (x : xs) ys
   where
@@ -27,7 +25,7 @@ intersectSpans (x@(xlow, xup@(Bound xUpValue _)) : xs) (y@(ylow, yup@(Bound yUpV
 
     lessThanNext = intersectSpans xs (y : ys)
     greaterThanNext = intersectSpans (x : xs) ys
-    equalNext = if xUpValue < yUpValue then lessThanNext else greaterThanNext
+    equalNext = if boundValue xup < boundValue yup then lessThanNext else greaterThanNext
 intersectSpans _ _ = []
 
 -- Assume that you are given a sorted list of spans
